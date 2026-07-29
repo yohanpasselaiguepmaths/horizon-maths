@@ -26,6 +26,11 @@ const supabaseUrl = runtimeEnvironment.VITE_SUPABASE_URL?.trim() ?? "";
 const supabasePublishableKey =
   runtimeEnvironment.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
 
+let teacherPasswordRecoveryPending =
+  typeof window !== "undefined" &&
+  (window.location.hash.includes("type=recovery") ||
+    new URLSearchParams(window.location.search).get("type") === "recovery");
+
 export const isCloudConfigured = Boolean(
   supabaseUrl && supabasePublishableKey,
 );
@@ -122,6 +127,11 @@ export async function signUpTeacher(
       },
     });
     if (error) throw error;
+    if (data.user && data.user.identities?.length === 0) {
+      throw new Error(
+        "Un compte enseignant existe déjà avec cette adresse. Utilisez « Mot de passe oublié » si nécessaire.",
+      );
+    }
     return {
       identity: data.user ? normalizeTeacherIdentity(data.user) : null,
       confirmationRequired: !data.session,
@@ -154,6 +164,39 @@ export async function signOutTeacher(): Promise<void> {
   if (error) throw friendlyError(error);
 }
 
+export async function sendTeacherPasswordReset(email: string): Promise<void> {
+  try {
+    const client = requireCloudClient();
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    const { error } = await client.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo,
+    });
+    if (error) throw error;
+  } catch (error) {
+    throw friendlyError(error);
+  }
+}
+
+export async function updateTeacherPassword(password: string): Promise<void> {
+  try {
+    const client = requireCloudClient();
+    const { error } = await client.auth.updateUser({ password });
+    if (error) throw error;
+    teacherPasswordRecoveryPending = false;
+    window.history.replaceState(
+      {},
+      document.title,
+      `${window.location.pathname}${window.location.search}`,
+    );
+  } catch (error) {
+    throw friendlyError(error);
+  }
+}
+
+export function hasTeacherPasswordRecoveryIntent(): boolean {
+  return teacherPasswordRecoveryPending;
+}
+
 export async function getCurrentTeacher(): Promise<TeacherIdentity | null> {
   if (!cloudClient) return null;
   const { data, error } = await cloudClient.auth.getUser();
@@ -163,12 +206,20 @@ export async function getCurrentTeacher(): Promise<TeacherIdentity | null> {
 
 export function subscribeToTeacher(
   listener: (teacher: TeacherIdentity | null) => void,
+  onPasswordRecovery?: (teacher: TeacherIdentity) => void,
 ): () => void {
   if (!cloudClient) return () => undefined;
   const {
     data: { subscription },
-  } = cloudClient.auth.onAuthStateChange((_event, session) => {
-    listener(session?.user ? normalizeTeacherIdentity(session.user) : null);
+  } = cloudClient.auth.onAuthStateChange((event, session) => {
+    const teacher = session?.user
+      ? normalizeTeacherIdentity(session.user)
+      : null;
+    if (event === "PASSWORD_RECOVERY" && teacher) {
+      teacherPasswordRecoveryPending = true;
+      onPasswordRecovery?.(teacher);
+    }
+    listener(teacher);
   });
   return () => subscription.unsubscribe();
 }

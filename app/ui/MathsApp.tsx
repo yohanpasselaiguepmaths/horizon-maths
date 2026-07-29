@@ -29,6 +29,7 @@ import type {
   SyncStatus,
 } from "../data/accountTypes";
 import {
+  hasTeacherPasswordRecoveryIntent,
   isCloudConfigured,
   logoutStudent,
   restoreStudentSession,
@@ -1678,6 +1679,12 @@ export function MathsApp() {
   const [previewProgress, setPreviewProgress] =
     useState<JourneyProgress | null>(null);
   const progressStoreRef = useRef(progressStore);
+
+  useEffect(() => {
+    if (hasTeacherPasswordRecoveryIntent()) {
+      setView({ name: "teacher" });
+    }
+  }, []);
 
   useEffect(() => {
     progressStoreRef.current = progressStore;

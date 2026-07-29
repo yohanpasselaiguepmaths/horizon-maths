@@ -23,14 +23,17 @@ import {
   deleteTeacherClass,
   deleteTeacherStudent,
   getCurrentTeacher,
+  hasTeacherPasswordRecoveryIntent,
   isCloudConfigured,
   loadTeacherSnapshot,
   loginStudent,
   resetTeacherStudentPassword,
+  sendTeacherPasswordReset,
   signInTeacher,
   signOutTeacher,
   signUpTeacher,
   subscribeToTeacher,
+  updateTeacherPassword,
 } from "../data/cloud";
 
 const STUDENT_SESSION_KEY = "horizon-maths-student-session-v1";
@@ -492,6 +495,30 @@ function TeacherAuth({
     }
   }
 
+  async function handlePasswordReset() {
+    if (!email.trim()) {
+      setError("Indiquez d’abord votre adresse e-mail.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await sendTeacherPasswordReset(email);
+      setMessage(
+        "Le lien de réinitialisation a été envoyé. Vérifiez aussi le dossier Courrier indésirable.",
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Le message n’a pas pu être envoyé.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="account-page teacher-auth-page">
       <div className="account-layout">
@@ -571,9 +598,95 @@ function TeacherAuth({
                   ? "Ouvrir mon tableau →"
                   : "Créer mon espace →"}
             </button>
+            {mode === "signin" && (
+              <button
+                type="button"
+                className="auth-reset-button"
+                disabled={busy}
+                onClick={handlePasswordReset}
+              >
+                Mot de passe oublié
+              </button>
+            )}
           </form>
         </section>
       </div>
+    </main>
+  );
+}
+
+function TeacherPasswordRecovery({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    if (password !== confirmation) {
+      setError("Les deux mots de passe ne sont pas identiques.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateTeacherPassword(password);
+      onComplete();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Le mot de passe n’a pas pu être modifié.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="account-page teacher-auth-page">
+      <section className="auth-card recovery-card">
+        <span className="section-kicker">Compte enseignant</span>
+        <h1>Choisir un nouveau mot de passe.</h1>
+        <p>
+          Le lien a bien été reconnu. Choisissez maintenant le mot de passe qui
+          ouvrira votre tableau enseignant.
+        </p>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label>
+            Nouveau mot de passe
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
+              required
+            />
+          </label>
+          <label>
+            Confirmer le mot de passe
+            <input
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              type="password"
+              autoComplete="new-password"
+              minLength={8}
+              maxLength={72}
+              required
+            />
+          </label>
+          {error && <p className="form-message error" role="alert">{error}</p>}
+          <button type="submit" className="primary-button" disabled={busy}>
+            {busy ? "Enregistrement…" : "Enregistrer et ouvrir mon tableau →"}
+          </button>
+        </form>
+      </section>
     </main>
   );
 }
@@ -1230,6 +1343,9 @@ export function TeacherPortal({
 }) {
   const [teacher, setTeacher] = useState<TeacherIdentity | null>(null);
   const [loading, setLoading] = useState(isCloudConfigured);
+  const [passwordRecovery, setPasswordRecovery] = useState(
+    hasTeacherPasswordRecoveryIntent,
+  );
 
   useEffect(() => {
     if (!isCloudConfigured) return;
@@ -1237,10 +1353,17 @@ export function TeacherPortal({
       setTeacher(current);
       setLoading(false);
     });
-    return subscribeToTeacher((current) => {
-      setTeacher(current);
-      setLoading(false);
-    });
+    return subscribeToTeacher(
+      (current) => {
+        setTeacher(current);
+        setLoading(false);
+      },
+      (current) => {
+        setTeacher(current);
+        setPasswordRecovery(true);
+        setLoading(false);
+      },
+    );
   }, []);
 
   if (!isCloudConfigured) return <SetupNotice audience="enseignant" />;
@@ -1256,6 +1379,13 @@ export function TeacherPortal({
   }
   if (!teacher) {
     return <TeacherAuth onAuthenticated={setTeacher} />;
+  }
+  if (passwordRecovery) {
+    return (
+      <TeacherPasswordRecovery
+        onComplete={() => setPasswordRecovery(false)}
+      />
+    );
   }
   return (
     <TeacherDashboard
