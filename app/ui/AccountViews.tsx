@@ -15,6 +15,10 @@ import type {
   TeacherStudent,
 } from "../data/accountTypes";
 import {
+  getChaptersForClassLevel,
+  resolveClassChapterId,
+} from "../data/classCurriculum";
+import {
   clearTeacherStudentProgress,
   createStudentSessionToken,
   createTeacherClass,
@@ -759,12 +763,22 @@ function TeacherDashboard({
   const selectedClass = snapshot.classes.find(
     (item) => item.id === selectedClassId,
   );
+  const availableChapters = getChaptersForClassLevel(selectedClass?.level);
+  const activeChapterId = resolveClassChapterId(
+    selectedClass?.level,
+    selectedChapterId,
+  );
+  const selectedClassLevelLabel =
+    selectedClass?.level === "mixte"
+      ? "Groupe mixte"
+      : levels.find((level) => level.id === selectedClass?.level)?.shortLabel ??
+        "";
   const classStudents = snapshot.students.filter(
     (student) => student.classId === selectedClassId,
   );
   const progressByStudent = new Map(
     snapshot.progress
-      .filter((item) => item.chapterId === selectedChapterId)
+      .filter((item) => item.chapterId === activeChapterId)
       .map((item) => [item.studentId, item]),
   );
   const started = classStudents.filter(
@@ -814,7 +828,7 @@ function TeacherDashboard({
     },
   ];
   const selectedJourney =
-    journeyRegistry[selectedChapterId] ?? journeyRegistry["suites-geometriques"];
+    journeyRegistry[activeChapterId] ?? journeyRegistry["suites-geometriques"];
   const previewSteps = selectedJourney.steps
     .filter(
       (step) =>
@@ -1072,7 +1086,7 @@ function TeacherDashboard({
             type="button"
             className="primary-button"
             onClick={() =>
-              onPreview(selectedChapterId, selectedJourney.startStepId)
+              onPreview(activeChapterId, selectedJourney.startStepId)
             }
           >
             ▶ Prévisualiser le parcours
@@ -1102,19 +1116,23 @@ function TeacherDashboard({
             onChange={(event) => setSelectedClassId(event.target.value)}
           >
             {snapshot.classes.map((item) => (
-              <option value={item.id} key={item.id}>{item.name}</option>
+              <option value={item.id} key={item.id}>
+                {item.name} ·{" "}
+                {item.level === "mixte"
+                  ? "Groupe mixte"
+                  : levels.find((level) => level.id === item.level)?.shortLabel}
+              </option>
             ))}
           </select>
         </label>
         <label>
-          Chapitre
+          Chapitre · {selectedClassLevelLabel}
           <select
-            value={selectedChapterId}
+            value={activeChapterId}
             onChange={(event) => setSelectedChapterId(event.target.value)}
           >
-            {chapters.map((chapter) => (
+            {availableChapters.map((chapter) => (
               <option key={chapter.id} value={chapter.id}>
-                {levels.find((level) => level.id === chapter.level)?.shortLabel} ·{" "}
                 {chapter.title}
               </option>
             ))}
@@ -1342,7 +1360,7 @@ function TeacherDashboard({
             <button
               type="button"
               key={step.id}
-              onClick={() => onPreview(selectedChapterId, step.id)}
+              onClick={() => onPreview(activeChapterId, step.id)}
             >
               {step.eyebrow} · {step.title} →
             </button>
