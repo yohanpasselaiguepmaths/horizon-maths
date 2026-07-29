@@ -9,12 +9,12 @@ import {
   type Chapter,
   type LevelId,
 } from "../content/curriculum";
-import {
-  geometricJourney,
-  journeyStepMap,
-  type JourneyStep,
-  type Route,
-} from "../content/geometricJourney";
+import { createJourneyStepMap, journeyRegistry } from "../content/allJourneys";
+import type {
+  JourneyStep,
+  LearningJourney,
+  Route,
+} from "../content/journeyTypes";
 import { classifyAnswer } from "../engine/journeyEngine";
 import {
   createStudentTraceText,
@@ -26,8 +26,8 @@ type View =
   | { name: "home" }
   | { name: "level"; level: LevelId }
   | { name: "chapter"; chapterId: string }
-  | { name: "journey" }
-  | { name: "trace" }
+  | { name: "journey"; chapterId: string }
+  | { name: "trace"; chapterId: string }
   | { name: "teacher" };
 
 type JourneyProgress = {
@@ -42,29 +42,34 @@ type JourneyProgress = {
   answers: Record<string, string>;
 };
 
-const STORAGE_KEY = "horizon-maths-geometric-v1";
+type ProgressStore = Record<string, JourneyProgress>;
 
-const emptyProgress: JourneyProgress = {
-  currentStepId: geometricJourney.startStepId,
-  visited: [],
-  completed: false,
-  completedAt: null,
-  conjecture: "",
-  errors: [],
-  hintsUsed: [],
-  pathTags: [],
-  answers: {},
-};
+const STORAGE_KEY = "horizon-maths-progress-v2";
+const LEGACY_STORAGE_KEY = "horizon-maths-geometric-v1";
 
-function cloneEmptyProgress(): JourneyProgress {
+function createEmptyProgress(journey: LearningJourney): JourneyProgress {
   return {
-    ...emptyProgress,
+    currentStepId: journey.startStepId,
     visited: [],
+    completed: false,
+    completedAt: null,
+    conjecture: "",
     errors: [],
     hintsUsed: [],
     pathTags: [],
     answers: {},
   };
+}
+
+function getChapterProgress(
+  progressStore: ProgressStore,
+  chapterId: string,
+): JourneyProgress {
+  const journey = journeyRegistry[chapterId];
+  return (
+    progressStore[chapterId] ??
+    createEmptyProgress(journey ?? journeyRegistry["suites-geometriques"])
+  );
 }
 
 function Icon({
@@ -185,7 +190,7 @@ function HomeView({
               <em>avant</em> d’apprendre.
             </h1>
             <p>
-              Des missions de 20 à 30 minutes pour observer, essayer, se tromper
+              Des missions de 15 à 30 minutes pour observer, essayer, se tromper
               utilement et construire sa propre conjecture.
             </p>
             <div className="hero-actions">
@@ -195,9 +200,9 @@ function HomeView({
                 onClick={() =>
                   onNavigate(
                     progress.completed
-                      ? { name: "trace" }
+                      ? { name: "trace", chapterId: "suites-geometriques" }
                       : progress.visited.length
-                      ? { name: "journey" }
+                      ? { name: "journey", chapterId: "suites-geometriques" }
                       : { name: "chapter", chapterId: "suites-geometriques" },
                   )
                 }
@@ -208,7 +213,7 @@ function HomeView({
                   ? "Retrouver ma trace"
                   : progress.visited.length
                   ? "Reprendre la mission"
-                  : "Découvrir le parcours pilote"}
+                  : "Découvrir le parcours approfondi"}
               </button>
               <button
                 type="button"
@@ -222,20 +227,20 @@ function HomeView({
             </div>
             <div className="hero-trust">
               <span>
-                <Icon name="clock" /> 20–30 min
+                <Icon name="clock" /> 15–30 min
               </span>
               <span>
                 <Icon name="route" /> Chemin adapté
               </span>
               <span>
-                <Icon name="check" /> Sans note
+                <Icon name="check" /> 23 parcours actifs
               </span>
             </div>
           </div>
           <div className="hero-visual" aria-label="Aperçu de la mission sur les suites">
             <div className="mission-card">
               <div className="mission-card-head">
-                <span className="live-pill">MISSION PILOTE</span>
+                <span className="live-pill">PARCOURS APPROFONDI</span>
                 <span>Terminale</span>
               </div>
               <h2>La propagation invisible</h2>
@@ -341,11 +346,11 @@ function HomeView({
 
 function LevelView({
   levelId,
-  progress,
+  progressStore,
   onNavigate,
 }: {
   levelId: LevelId;
-  progress: JourneyProgress;
+  progressStore: ProgressStore;
   onNavigate: (view: View) => void;
 }) {
   const level = levels.find((item) => item.id === levelId)!;
@@ -400,21 +405,29 @@ function LevelView({
           </div>
         </div>
         <div className="chapter-list">
-          {levelChapters.map((chapter, index) => (
-            <ChapterRow
-              key={chapter.id}
-              chapter={chapter}
-              index={index}
-              progress={progress}
-              onOpen={() =>
-                onNavigate(
-                  chapter.pilot && progress.completed
-                    ? { name: "trace" }
-                    : { name: "chapter", chapterId: chapter.id },
-                )
-              }
-            />
-          ))}
+          {levelChapters.map((chapter, index) => {
+            const chapterProgress = getChapterProgress(
+              progressStore,
+              chapter.id,
+            );
+            const available = Boolean(journeyRegistry[chapter.id]);
+            return (
+              <ChapterRow
+                key={chapter.id}
+                chapter={chapter}
+                index={index}
+                progress={chapterProgress}
+                available={available}
+                onOpen={() =>
+                  onNavigate(
+                    available && chapterProgress.completed
+                      ? { name: "trace", chapterId: chapter.id }
+                      : { name: "chapter", chapterId: chapter.id },
+                  )
+                }
+              />
+            );
+          })}
           {!levelChapters.length && (
             <div className="empty-filter">
               Aucun chapitre spécifique à cette filière pour ce niveau.
@@ -445,14 +458,16 @@ function ChapterRow({
   chapter,
   index,
   progress,
+  available,
   onOpen,
 }: {
   chapter: Chapter;
   index: number;
   progress: JourneyProgress;
+  available: boolean;
   onOpen: () => void;
 }) {
-  const status = chapter.pilot
+  const status = available
     ? progress.completed
       ? "Terminé"
       : progress.visited.length
@@ -460,27 +475,31 @@ function ChapterRow({
         : "Non commencé"
     : "Parcours en préparation";
   return (
-    <article className={`chapter-row ${chapter.pilot ? "pilot" : ""}`}>
+    <article className={`chapter-row ${available ? "pilot" : ""}`}>
       <span className="chapter-index">{String(index + 1).padStart(2, "0")}</span>
       <div className="chapter-main">
         <div className="chapter-badges">
           <AudienceBadge audience={chapter.audience} />
-          {chapter.pilot && <span className="pilot-badge">Parcours disponible</span>}
+          {available && (
+            <span className="pilot-badge">
+              {chapter.pilot ? "Parcours approfondi" : "Parcours actif"}
+            </span>
+          )}
         </div>
         <h3>{chapter.title}</h3>
         <p>{chapter.summary}</p>
       </div>
-      <div className={`status-label ${chapter.pilot ? "available" : ""}`}>
+      <div className={`status-label ${available ? "available" : ""}`}>
         <span aria-hidden="true" />
         {status}
       </div>
       <button
         type="button"
-        className={chapter.pilot ? "row-button available" : "row-button"}
+        className={available ? "row-button available" : "row-button"}
         onClick={onOpen}
-        aria-label={`${chapter.pilot ? "Ouvrir" : "Voir la fiche"} : ${chapter.title}`}
+        aria-label={`${available ? "Ouvrir" : "Voir la fiche"} : ${chapter.title}`}
       >
-        {chapter.pilot ? (
+        {available ? (
           <>
             {progress.completed
               ? "Voir la trace"
@@ -501,17 +520,19 @@ function ChapterRow({
 
 function ChapterView({
   chapter,
+  journey,
   progress,
   onNavigate,
   onStart,
 }: {
   chapter: Chapter;
+  journey?: LearningJourney;
   progress: JourneyProgress;
   onNavigate: (view: View) => void;
   onStart: (reset?: boolean) => void;
 }) {
   const level = levels.find((item) => item.id === chapter.level)!;
-  if (!chapter.pilot) {
+  if (!journey) {
     return (
       <main className="inner-page preparation-page">
         <button
@@ -528,8 +549,8 @@ function ChapterView({
           <h1>{chapter.title}</h1>
           <p>
             Ce chapitre figure bien au catalogue, mais son parcours de découverte
-            n’est pas encore publié. Il sera construit avec la même exigence que le
-            parcours pilote : situation authentique, détours utiles et conjecture finale.
+            n’est pas encore publié. Il sera construit avec la même exigence :
+            situation authentique, détours utiles et conjecture finale.
           </p>
           <button
             type="button"
@@ -548,32 +569,27 @@ function ChapterView({
       <button
         type="button"
         className="breadcrumb"
-        onClick={() => onNavigate({ name: "level", level: "terminale" })}
+        onClick={() => onNavigate({ name: "level", level: chapter.level })}
       >
-        <Icon name="arrow" /> Terminale
+        <Icon name="arrow" /> {level.shortLabel}
       </button>
       <section className="chapter-hero">
         <div className="chapter-hero-copy">
           <div className="chapter-badges">
-            <AudienceBadge audience="commun" />
-            <span className="pilot-badge">Parcours pilote</span>
+            <AudienceBadge audience={chapter.audience} />
+            <span className="pilot-badge">
+              {chapter.pilot ? "Parcours approfondi" : "Parcours actif"}
+            </span>
           </div>
-          <span className="section-kicker">Chapitre · Suites numériques</span>
-          <h1>
-            La propagation
-            <br />
-            <em>invisible</em>
-          </h1>
-          <p className="chapter-lead">
-            De la diffusion d’une vidéo à une culture bactérienne : découvre la
-            règle qui permet de prévoir une évolution répétée.
-          </p>
+          <span className="section-kicker">{chapter.title}</span>
+          <h1>{journey.title}</h1>
+          <p className="chapter-lead">{journey.mission}</p>
           <div className="mission-facts">
             <span>
-              <Icon name="clock" /> 20 à 30 minutes
+              <Icon name="clock" /> {journey.duration}
             </span>
             <span>
-              <Icon name="route" /> 8 étapes
+              <Icon name="route" /> {journey.totalStages} étapes
             </span>
             <span>
               <Icon name="book" /> Une trace finale
@@ -585,7 +601,9 @@ function ChapterView({
                 <button
                   type="button"
                   className="primary-button"
-                  onClick={() => onNavigate({ name: "trace" })}
+                  onClick={() =>
+                    onNavigate({ name: "trace", chapterId: chapter.id })
+                  }
                   data-testid="open-trace-button"
                 >
                   <Icon name="book" size={16} />
@@ -633,19 +651,18 @@ function ChapterView({
             <small>les détours s’adaptent discrètement</small>
           </div>
           <div className="route-map" aria-label="Aperçu des étapes du parcours">
-            {[
-              ["01", "Prévoir une diffusion", "Réseaux sociaux"],
-              ["02", "Un détour adapté", "Indice ou défi"],
-              ["03", "Décoder le coefficient", "Point commun"],
-              ["04", "Tester un seuil", "Laboratoire"],
-              ["05", "Changer de contexte", "Économie"],
-              ["06", "Formuler la règle", "Conjecture"],
-            ].map(([number, title, context], index) => (
-              <div key={number} className={index === 1 ? "route-adaptive" : ""}>
-                <span>{number}</span>
+            {journey.stageLabels.map((title, index) => (
+              <div key={title} className={index === 1 ? "route-adaptive" : ""}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
                 <p>
                   <strong>{title}</strong>
-                  <small>{context}</small>
+                  <small>
+                    {index === 1
+                      ? "détour guidé ou défi"
+                      : index === journey.stageLabels.length - 1
+                        ? "trace personnelle"
+                        : "progression commune"}
+                  </small>
                 </p>
               </div>
             ))}
@@ -655,20 +672,20 @@ function ChapterView({
       <section className="chapter-objectives">
         <div>
           <span className="section-kicker">Ta mission</span>
-          <h2>Prévoir sans connaître encore la formule</h2>
+          <h2>{journey.subtitle}</h2>
         </div>
         <div className="objective-grid">
           <p>
             <span>Observer</span>
-            Repérer ce qui reste constant entre deux valeurs successives.
+            Repérer les informations mathématiques utiles dans la situation.
           </p>
           <p>
             <span>Expérimenter</span>
-            Manipuler un taux et rechercher le premier dépassement d’un seuil.
+            Tester une stratégie, recevoir un détour ou relever un défi.
           </p>
           <p>
             <span>Conjecturer</span>
-            Écrire avec tes mots la règle qui semble définir la suite.
+            Formuler la méthode avec tes mots avant la mise en commun.
           </p>
         </div>
       </section>
@@ -677,16 +694,21 @@ function ChapterView({
 }
 
 function JourneyView({
+  chapter,
+  journey,
   progress,
   setProgress,
   onNavigate,
 }: {
+  chapter: Chapter;
+  journey: LearningJourney;
   progress: JourneyProgress;
   setProgress: React.Dispatch<React.SetStateAction<JourneyProgress>>;
   onNavigate: (view: View) => void;
 }) {
+  const stepMap = useMemo(() => createJourneyStepMap(journey), [journey]);
   const step =
-    journeyStepMap[progress.currentStepId] ?? journeyStepMap["video-forecast"];
+    stepMap[progress.currentStepId] ?? stepMap[journey.startStepId];
   const [answer, setAnswer] = useState<string | number | Record<string, string>>(
     step.type === "parameter"
       ? (step.defaultValue ?? 0)
@@ -753,12 +775,12 @@ function JourneyView({
     if (feedback.next === "complete") {
       setProgress((current) => ({
         ...current,
-        currentStepId: "class-handoff",
+        currentStepId: step.id,
         visited: Array.from(new Set([...current.visited, step.id])),
         completed: true,
         completedAt: current.completedAt ?? new Date().toISOString(),
       }));
-      onNavigate({ name: "trace" });
+      onNavigate({ name: "trace", chapterId: chapter.id });
       return;
     }
     setProgress((current) => ({
@@ -789,8 +811,9 @@ function JourneyView({
   }
 
   const visitedStages = new Set(
-    progress.visited.map((id) => journeyStepMap[id]?.stage).filter(Boolean),
+    progress.visited.map((id) => stepMap[id]?.stage).filter(Boolean),
   );
+  const level = levels.find((item) => item.id === chapter.level)!;
 
   return (
     <main className="journey-shell">
@@ -799,43 +822,39 @@ function JourneyView({
           type="button"
           className="journey-brand"
           onClick={() =>
-            onNavigate({ name: "chapter", chapterId: "suites-geometriques" })
+            onNavigate({ name: "chapter", chapterId: chapter.id })
           }
         >
           <span>∑</span> HORIZON MATHS
         </button>
         <div className="journey-title">
-          <small>Terminale · Suites géométriques</small>
-          <strong>La propagation invisible</strong>
+          <small>{level.shortLabel} · {chapter.title}</small>
+          <strong>{journey.title}</strong>
         </div>
         <button
           type="button"
           className="save-exit"
           onClick={() =>
-            onNavigate({ name: "chapter", chapterId: "suites-geometriques" })
+            onNavigate({ name: "chapter", chapterId: chapter.id })
           }
         >
           Enregistrer et quitter
         </button>
       </header>
-      <div className="journey-progress" aria-label={`Étape ${step.stage} sur 8`}>
-        <span style={{ width: `${(step.stage / 8) * 100}%` }} />
+      <div
+        className="journey-progress"
+        aria-label={`Étape ${step.stage} sur ${journey.totalStages}`}
+      >
+        <span
+          style={{ width: `${(step.stage / journey.totalStages) * 100}%` }}
+        />
       </div>
 
       <div className="journey-layout">
         <aside className="journey-sidebar">
           <span className="sidebar-kicker">Ton parcours</span>
           <ol>
-            {[
-              "La vidéo",
-              "Le détour",
-              "La règle",
-              "Le laboratoire",
-              "Le transfert",
-              "La synthèse",
-              "Ta conjecture",
-              "Mise en commun",
-            ].map((label, index) => {
+            {journey.stageLabels.map((label, index) => {
               const stage = index + 1;
               const active = step.stage === stage;
               const done = visitedStages.has(stage) || step.stage > stage;
@@ -863,10 +882,11 @@ function JourneyView({
         <section className="step-area">
           <div className="step-topline">
             <span>
-              Étape {step.stage} <i>/ 8</i>
+              Étape {step.stage} <i>/ {journey.totalStages}</i>
             </span>
             <span className="time-estimate">
-              <Icon name="clock" /> environ {step.stage < 7 ? "3 min" : "2 min"}
+              <Icon name="clock" /> environ{" "}
+              {step.stage < journey.totalStages - 1 ? "3 min" : "2 min"}
             </span>
           </div>
           <article className="step-card" data-testid={`journey-step-${step.id}`}>
@@ -880,6 +900,7 @@ function JourneyView({
                   step.type === "parameter" ? Number(answer) : undefined
                 }
                 conjecture={progress.conjecture}
+                fallbackConjecture={journey.trace.fallbackConjecture}
               />
             )}
             {step.prompt && <p className="step-prompt">{step.prompt}</p>}
@@ -1079,7 +1100,7 @@ function Interaction({
           onChange={(event) => setAnswer(event.target.value)}
           disabled={disabled}
           rows={4}
-          placeholder="Une suite semble géométrique lorsque…"
+          placeholder={step.placeholder ?? "Écris ta règle avec tes mots…"}
           data-testid="conjecture-answer"
         />
         <small>{String(answer).trim().length} caractères · une phrase suffit</small>
@@ -1093,10 +1114,12 @@ function StepVisual({
   type,
   parameterValue,
   conjecture,
+  fallbackConjecture,
 }: {
   type: NonNullable<JourneyStep["visual"]>;
   parameterValue?: number;
   conjecture?: string;
+  fallbackConjecture?: string;
 }) {
   if (type === "diffusion") return <DiffusionVisual />;
   if (type === "comparison") {
@@ -1150,7 +1173,8 @@ function StepVisual({
         <small>Ta conjecture</small>
         <p>
           {conjecture ||
-            "Chaque terme semble être obtenu en multipliant le précédent par un même nombre."}
+            fallbackConjecture ||
+            "J’ai formulé une méthode que je pourrai comparer avec celle de la classe."}
         </p>
       </div>
     </div>
@@ -1180,28 +1204,38 @@ function DiffusionVisual({ compact = false }: { compact?: boolean }) {
 }
 
 function TraceView({
+  chapter,
+  journey,
   progress,
   onNavigate,
   onRestart,
 }: {
+  chapter: Chapter;
+  journey: LearningJourney;
   progress: JourneyProgress;
   onNavigate: (view: View) => void;
   onRestart: () => void;
 }) {
+  const level = levels.find((item) => item.id === chapter.level)!;
   const completionDate = formatCompletionDate(progress.completedAt);
   const highlights = getPathHighlights(progress.pathTags);
   const conjecture =
-    progress.conjecture.trim() ||
-    "Une suite semble géométrique lorsque l’on multiplie toujours le terme précédent par le même nombre.";
+    progress.conjecture.trim() || journey.trace.fallbackConjecture;
+  const traceContent = {
+    ...journey.trace,
+    levelLabel: level.label,
+    chapterTitle: chapter.title,
+    journeyTitle: journey.title,
+  };
 
   function downloadTrace() {
-    const file = new Blob([createStudentTraceText(progress)], {
+    const file = new Blob([createStudentTraceText(progress, traceContent)], {
       type: "text/plain;charset=utf-8",
     });
     const url = URL.createObjectURL(file);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "ma-trace-suites-geometriques.txt";
+    link.download = `ma-trace-${chapter.id}.txt`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1215,7 +1249,7 @@ function TraceView({
           type="button"
           className="breadcrumb"
           onClick={() =>
-            onNavigate({ name: "chapter", chapterId: "suites-geometriques" })
+            onNavigate({ name: "chapter", chapterId: chapter.id })
           }
         >
           <Icon name="arrow" /> Retour au chapitre
@@ -1250,9 +1284,9 @@ function TraceView({
             </p>
           </div>
           <div className="trace-title">
-            <span>Terminale · Suites géométriques</span>
+            <span>{level.shortLabel} · {chapter.title}</span>
             <h1>Ma trace de découverte</h1>
-            <p>La propagation invisible · {completionDate}</p>
+            <p>{journey.title} · {completionDate}</p>
           </div>
         </header>
 
@@ -1298,24 +1332,13 @@ function TraceView({
             <span className="trace-section-number">03</span>
             <small>La règle mathématique</small>
             <h2>Ce que je retiens</h2>
-            <p>
-              Une suite est <strong>géométrique</strong> lorsque chaque terme
-              s’obtient en multipliant le précédent par un même nombre
-              <strong> q</strong>, appelé <strong>raison</strong>.
-            </p>
+            <p>{journey.trace.rule}</p>
             <div className="trace-formulas">
-              <span>
-                u<sub>n+1</sub> = q × u<sub>n</sub>
-              </span>
-              <span>
-                u<sub>n</sub> = u<sub>0</sub> × q<sup>n</sup>
-              </span>
+              {journey.trace.formulas.map((formula) => (
+                <span key={formula}>{formula}</span>
+              ))}
             </div>
-            <p className="trace-variation">
-              <strong>q &gt; 1</strong> : la suite augmente
-              <br />
-              <strong>0 &lt; q &lt; 1</strong> : elle diminue
-            </p>
+            <p className="trace-variation">{journey.trace.note}</p>
           </div>
         </section>
 
@@ -1326,21 +1349,13 @@ function TraceView({
             <h2>Mes exemples de référence</h2>
           </div>
           <div className="trace-example-grid">
-            <article>
-              <span>Diffusion</span>
-              <strong>120 × 1,5² = 270</strong>
-              <p>Après deux nouvelles heures.</p>
-            </article>
-            <article>
-              <span>Culture</span>
-              <strong>800 × 1,25⁴ ≈ 1 953</strong>
-              <p>Premier dépassement de 1 800 au cycle 4.</p>
-            </article>
-            <article>
-              <span>Dépréciation</span>
-              <strong>1 000 × 0,8² = 640 €</strong>
-              <p>Après deux années de baisse.</p>
-            </article>
+            {journey.trace.examples.map((example) => (
+              <article key={`${example.label}-${example.formula}`}>
+                <span>{example.label}</span>
+                <strong>{example.formula}</strong>
+                <p>{example.explanation}</p>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -1380,13 +1395,25 @@ function TeacherView({
   onPreview,
 }: {
   onNavigate: (view: View) => void;
-  onPreview: (stepId: string) => void;
+  onPreview: (chapterId: string, stepId: string) => void;
 }) {
+  const [selectedChapterId, setSelectedChapterId] = useState(
+    "suites-geometriques",
+  );
+  const selectedJourney =
+    journeyRegistry[selectedChapterId] ?? journeyRegistry["suites-geometriques"];
+  const previewSteps = selectedJourney.steps
+    .filter(
+      (step) =>
+        step.id === selectedJourney.startStepId ||
+        step.stage === 2 ||
+        step.stage === Math.min(4, selectedJourney.totalStages),
+    )
+    .slice(0, 3);
   const pathRows = [
-    ["Intuition proportionnelle", "11", "46%"],
-    ["Aide : hausse fixe", "7", "29%"],
-    ["Aide : représentation", "4", "17%"],
-    ["Exemple intermédiaire", "2", "8%"],
+    ["Voie défi", "11", "46%"],
+    ["Détour guidé", "9", "38%"],
+    ["Application reprise", "4", "16%"],
   ];
   return (
     <main className="teacher-page">
@@ -1396,13 +1423,16 @@ function TeacherView({
           <h1>Préparer la mise en commun</h1>
           <p>
             Vue de démonstration avec données anonymisées fictives. Aucun compte ni
-            suivi de classe réel n’est activé dans cette première version.
+            suivi de classe réel n’est activé. Les 23 parcours peuvent être
+            prévisualisés.
           </p>
         </div>
         <button
           type="button"
           className="primary-button"
-          onClick={() => onPreview("video-forecast")}
+          onClick={() =>
+            onPreview(selectedChapterId, selectedJourney.startStepId)
+          }
         >
           <Icon name="play" size={15} /> Prévisualiser le parcours
         </button>
@@ -1418,8 +1448,16 @@ function TeacherView({
         </label>
         <label>
           Chapitre
-          <select defaultValue="suites">
-            <option value="suites">Suites géométriques</option>
+          <select
+            value={selectedChapterId}
+            onChange={(event) => setSelectedChapterId(event.target.value)}
+          >
+            {chapters.map((chapter) => (
+              <option key={chapter.id} value={chapter.id}>
+                {levels.find((level) => level.id === chapter.level)?.shortLabel} ·{" "}
+                {chapter.title}
+              </option>
+            ))}
           </select>
         </label>
         <span>Actualisé pour la démonstration</span>
@@ -1448,7 +1486,7 @@ function TeacherView({
           <div className="dashboard-title">
             <div>
               <span>Chemins empruntés</span>
-              <h2>Première bifurcation</h2>
+              <h2>Voies adaptatives · démonstration</h2>
             </div>
             <small>24 élèves</small>
           </div>
@@ -1473,17 +1511,17 @@ function TeacherView({
           <ol>
             <li>
               <span>01</span>
-              <p><strong>Ajout fixe au lieu d’un taux fixe</strong>7 élèves · vidéo</p>
+              <p><strong>Identifier la grandeur de référence</strong>7 élèves · diagnostic</p>
               <em>fréquent</em>
             </li>
             <li>
               <span>02</span>
-              <p><strong>Premier rang de dépassement</strong>6 élèves · bactéries</p>
+              <p><strong>Choisir la méthode adaptée</strong>6 élèves · application</p>
               <em>à revoir</em>
             </li>
             <li>
               <span>03</span>
-              <p><strong>Taux confondu avec coefficient</strong>4 élèves · point commun</p>
+              <p><strong>Justifier et contrôler le résultat</strong>4 élèves · synthèse</p>
               <em>ponctuel</em>
             </li>
           </ol>
@@ -1497,9 +1535,9 @@ function TeacherView({
             </div>
           </div>
           <div className="hint-metrics">
-            <div><span>Nouvelle base de calcul</span><strong>9</strong></div>
-            <div><span>Coefficient 1 + t/100</span><strong>7</strong></div>
-            <div><span>Encadrer le seuil</span><strong>6</strong></div>
+            <div><span>Repérer les données utiles</span><strong>9</strong></div>
+            <div><span>Décomposer la méthode</span><strong>7</strong></div>
+            <div><span>Vérifier l’ordre de grandeur</span><strong>6</strong></div>
           </div>
           <p className="dashboard-note">
             Le nombre d’aides n’alimente aucun score ni classement.
@@ -1515,13 +1553,11 @@ function TeacherView({
             <small>Pseudonymes</small>
           </div>
           <blockquote>
-            « On reprend toujours le résultat d’avant et on lui applique le même
-            coefficient. »
+            « Je commence par repérer ce que je connais et ce que je cherche. »
             <cite>Élève A12</cite>
           </blockquote>
           <blockquote>
-            « Ce n’est pas la différence qui reste pareille, c’est le nombre par
-            lequel on multiplie. »
+            « Mon résultat doit répondre à la question et garder la bonne unité. »
             <cite>Élève B07</cite>
           </blockquote>
         </section>
@@ -1533,9 +1569,9 @@ function TeacherView({
           <h2>Trois idées à faire émerger au tableau</h2>
         </div>
         <ol>
-          <li><span>1</span>Distinguer hausse fixe et hausse proportionnelle.</li>
-          <li><span>2</span>Nommer le coefficient multiplicateur puis la raison.</li>
-          <li><span>3</span>Relier le modèle discret aux fonctions exponentielles.</li>
+          <li><span>1</span>Comparer les stratégies apparues au diagnostic.</li>
+          <li><span>2</span>Nommer la méthode et les conditions de son utilisation.</li>
+          <li><span>3</span>Institutionnaliser la règle puis vérifier sur un exemple.</li>
         </ol>
       </section>
 
@@ -1545,15 +1581,15 @@ function TeacherView({
           <h2>Ouvrir directement une étape</h2>
         </div>
         <div>
-          <button type="button" onClick={() => onPreview("addition-help")}>
-            Aide « hausse fixe » <Icon name="arrow" />
-          </button>
-          <button type="button" onClick={() => onPreview("threshold-challenge")}>
-            Défi « seuil de vues » <Icon name="arrow" />
-          </button>
-          <button type="button" onClick={() => onPreview("bio-visual")}>
-            Aide « premier dépassement » <Icon name="arrow" />
-          </button>
+          {previewSteps.map((step) => (
+            <button
+              type="button"
+              key={step.id}
+              onClick={() => onPreview(selectedChapterId, step.id)}
+            >
+              {step.eyebrow} · {step.title} <Icon name="arrow" />
+            </button>
+          ))}
         </div>
       </section>
 
@@ -1592,21 +1628,50 @@ function Footer() {
 
 export function MathsApp() {
   const [view, setView] = useState<View>({ name: "home" });
-  const [progress, setProgress] = useState<JourneyProgress>(cloneEmptyProgress);
+  const [progressStore, setProgressStore] = useState<ProgressStore>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const saved = JSON.parse(stored) as Partial<JourneyProgress>;
-        setProgress({
-          ...cloneEmptyProgress(),
-          ...saved,
-          completedAt:
-            saved.completedAt ??
-            (saved.completed ? new Date().toISOString() : null),
-        });
+        const savedStore = JSON.parse(stored) as Record<
+          string,
+          Partial<JourneyProgress>
+        >;
+        const normalized = Object.fromEntries(
+          Object.entries(savedStore)
+            .filter(([chapterId]) => Boolean(journeyRegistry[chapterId]))
+            .map(([chapterId, saved]) => {
+              const base = createEmptyProgress(journeyRegistry[chapterId]);
+              return [
+                chapterId,
+                {
+                  ...base,
+                  ...saved,
+                  completedAt:
+                    saved.completedAt ??
+                    (saved.completed ? new Date().toISOString() : null),
+                },
+              ];
+            }),
+        ) as ProgressStore;
+        setProgressStore(normalized);
+      } else {
+        const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacy) {
+          const saved = JSON.parse(legacy) as Partial<JourneyProgress>;
+          const chapterId = "suites-geometriques";
+          setProgressStore({
+            [chapterId]: {
+              ...createEmptyProgress(journeyRegistry[chapterId]),
+              ...saved,
+              completedAt:
+                saved.completedAt ??
+                (saved.completed ? new Date().toISOString() : null),
+            },
+          });
+        }
       }
     } catch {
       // Une progression illisible est simplement ignorée.
@@ -1616,69 +1681,119 @@ export function MathsApp() {
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  }, [progress, hydrated]);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progressStore));
+  }, [progressStore, hydrated]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [view]);
 
-  const selectedChapter = useMemo(
-    () =>
-      view.name === "chapter"
-        ? chapters.find((chapter) => chapter.id === view.chapterId)
-        : undefined,
-    [view],
-  );
+  const activeChapterId =
+    view.name === "chapter" || view.name === "journey" || view.name === "trace"
+      ? view.chapterId
+      : undefined;
+  const selectedChapter = activeChapterId
+    ? chapters.find((chapter) => chapter.id === activeChapterId)
+    : undefined;
+  const selectedJourney = activeChapterId
+    ? journeyRegistry[activeChapterId]
+    : undefined;
+  const selectedProgress =
+    activeChapterId && selectedJourney
+      ? getChapterProgress(progressStore, activeChapterId)
+      : undefined;
 
-  function startJourney(reset = false) {
-    if (reset) {
-      setProgress(cloneEmptyProgress());
-    }
-    setView({ name: "journey" });
+  function setChapterProgress(
+    chapterId: string,
+    action: React.SetStateAction<JourneyProgress>,
+  ) {
+    setProgressStore((currentStore) => {
+      const current = getChapterProgress(currentStore, chapterId);
+      const next =
+        typeof action === "function"
+          ? (action as (value: JourneyProgress) => JourneyProgress)(current)
+          : action;
+      return { ...currentStore, [chapterId]: next };
+    });
   }
 
-  function previewStep(stepId: string) {
-    setProgress({
-      ...cloneEmptyProgress(),
-      currentStepId: stepId,
-    });
-    setView({ name: "journey" });
+  function startJourney(chapterId: string, reset = false) {
+    const journey = journeyRegistry[chapterId];
+    if (!journey) return;
+    if (reset) {
+      setProgressStore((current) => ({
+        ...current,
+        [chapterId]: createEmptyProgress(journey),
+      }));
+    }
+    setView({ name: "journey", chapterId });
+  }
+
+  function previewStep(chapterId: string, stepId: string) {
+    const journey = journeyRegistry[chapterId];
+    if (!journey) return;
+    setProgressStore((current) => ({
+      ...current,
+      [chapterId]: {
+        ...createEmptyProgress(journey),
+        currentStepId: stepId,
+      },
+    }));
+    setView({ name: "journey", chapterId });
   }
 
   return (
     <div className="app-shell">
       {view.name !== "journey" && <Header view={view} onNavigate={setView} />}
       {view.name === "home" && (
-        <HomeView progress={progress} onNavigate={setView} />
+        <HomeView
+          progress={getChapterProgress(
+            progressStore,
+            "suites-geometriques",
+          )}
+          onNavigate={setView}
+        />
       )}
       {view.name === "level" && (
         <LevelView
           levelId={view.level}
-          progress={progress}
+          progressStore={progressStore}
           onNavigate={setView}
         />
       )}
-      {view.name === "chapter" && selectedChapter && (
+      {view.name === "chapter" && selectedChapter && selectedProgress && (
         <ChapterView
           chapter={selectedChapter}
-          progress={progress}
+          journey={selectedJourney}
+          progress={selectedProgress}
           onNavigate={setView}
-          onStart={startJourney}
+          onStart={(reset) => startJourney(selectedChapter.id, reset)}
         />
       )}
-      {view.name === "journey" && (
+      {view.name === "journey" &&
+        selectedChapter &&
+        selectedJourney &&
+        selectedProgress && (
         <JourneyView
-          progress={progress}
-          setProgress={setProgress}
+          chapter={selectedChapter}
+          journey={selectedJourney}
+          progress={selectedProgress}
+          setProgress={(action) =>
+            setChapterProgress(selectedChapter.id, action)
+          }
           onNavigate={setView}
         />
       )}
-      {view.name === "trace" && (
+      {view.name === "trace" &&
+        selectedChapter &&
+        selectedJourney &&
+        selectedProgress && (
         <TraceView
-          progress={progress}
+          chapter={selectedChapter}
+          journey={selectedJourney}
+          progress={selectedProgress}
           onNavigate={setView}
-          onRestart={() => startJourney(true)}
+          onRestart={() => startJourney(selectedChapter.id, true)}
         />
       )}
       {view.name === "teacher" && (

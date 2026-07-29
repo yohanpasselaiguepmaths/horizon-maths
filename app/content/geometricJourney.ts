@@ -1,52 +1,10 @@
-export type InteractionType =
-  | "single-choice"
-  | "multiple-choice"
-  | "numeric"
-  | "matching"
-  | "ordering"
-  | "graph-selection"
-  | "parameter"
-  | "short-answer"
-  | "information"
-  | "conjecture";
+import type { JourneyStep, LearningJourney } from "./journeyTypes";
 
-export type Route = {
-  next: string;
-  feedback: string;
-  tone: "success" | "help" | "challenge" | "neutral";
-  pathTag?: string;
-  misconception?: string;
-};
+export type { JourneyStep, Route } from "./journeyTypes";
 
-export type JourneyStep = {
-  id: string;
-  stage: number;
-  eyebrow: string;
-  title: string;
-  situation: string;
-  prompt?: string;
-  type: InteractionType;
-  options?: Array<{ id: string; label: string }>;
-  matches?: Array<{ id: string; label: string; choices: string[] }>;
-  min?: number;
-  max?: number;
-  defaultValue?: number;
-  unit?: string;
-  expected?: string | number | Record<string, string>;
-  classify?: "forecast" | "threshold" | "parameter" | "matching" | "conjecture";
-  routes: Record<string, Route>;
-  hints?: string[];
-  convergence?: string;
-  visual?: "diffusion" | "comparison" | "growth" | "transfer" | "trace";
-  teacher: {
-    intention: string;
-    watchFor: string;
-    dashboardKey: string;
-  };
-};
-
-export const geometricJourney = {
+export const geometricJourney: LearningJourney = {
   id: "suites-geometriques",
+  chapterId: "suites-geometriques",
   title: "La propagation invisible",
   subtitle: "Découverte des suites géométriques",
   duration: "20 à 30 min",
@@ -54,6 +12,16 @@ export const geometricJourney = {
     "Conseiller une équipe média, puis une biologiste, pour prévoir des évolutions qui se répètent.",
   startStepId: "video-forecast",
   totalStages: 8,
+  stageLabels: [
+    "La vidéo",
+    "Le détour",
+    "La règle",
+    "Le laboratoire",
+    "Le transfert",
+    "La synthèse",
+    "Ta conjecture",
+    "Mise en commun",
+  ],
   steps: [
     {
       id: "video-forecast",
@@ -524,6 +492,31 @@ export const geometricJourney = {
       },
     },
   ] satisfies JourneyStep[],
+  trace: {
+    fallbackConjecture:
+      "Une suite semble géométrique lorsque l’on multiplie toujours le terme précédent par le même nombre.",
+    rule:
+      "Une suite est géométrique lorsque chaque terme s’obtient en multipliant le précédent par un même nombre q, appelé raison.",
+    formulas: ["uₙ₊₁ = q × uₙ", "uₙ = u₀ × qⁿ"],
+    note: "Si q > 1, la suite augmente. Si 0 < q < 1, elle diminue.",
+    examples: [
+      {
+        label: "Diffusion",
+        formula: "120 × 1,5² = 270",
+        explanation: "Après deux nouvelles heures.",
+      },
+      {
+        label: "Culture",
+        formula: "800 × 1,25⁴ ≈ 1 953",
+        explanation: "Premier dépassement de 1 800 au cycle 4.",
+      },
+      {
+        label: "Dépréciation",
+        formula: "1 000 × 0,8² = 640 €",
+        explanation: "Après deux années de baisse.",
+      },
+    ],
+  },
 };
 
 export const journeyStepMap = Object.fromEntries(

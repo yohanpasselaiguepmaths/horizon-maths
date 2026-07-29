@@ -1,4 +1,4 @@
-import type { JourneyStep } from "../content/geometricJourney";
+import type { JourneyStep } from "../content/journeyTypes";
 
 export type JourneyAnswer = string | number | Record<string, string>;
 

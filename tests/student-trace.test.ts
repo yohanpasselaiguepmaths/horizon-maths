@@ -5,6 +5,7 @@ import {
   formatCompletionDate,
   getPathHighlights,
 } from "../app/engine/studentTrace.ts";
+import { geometricJourney } from "../app/content/geometricJourney.ts";
 
 test("la trace reformule les détours comme des apprentissages", () => {
   assert.deepEqual(
@@ -29,15 +30,23 @@ test("la date de fin est lisible et tolère les anciennes progressions", () => {
 });
 
 test("le téléchargement contient la conjecture et les résultats de référence", () => {
-  const trace = createStudentTraceText({
-    completedAt: "2026-07-29T12:00:00.000Z",
-    conjecture: "On multiplie toujours par le même nombre.",
-    hintsUsed: ["indice-1"],
-    pathTags: ["transfert-reussi"],
-  });
+  const trace = createStudentTraceText(
+    {
+      completedAt: "2026-07-29T12:00:00.000Z",
+      conjecture: "On multiplie toujours par le même nombre.",
+      hintsUsed: ["indice-1"],
+      pathTags: ["transfert-reussi"],
+    },
+    {
+      ...geometricJourney.trace,
+      levelLabel: "Terminale professionnelle",
+      chapterTitle: "Découverte des suites géométriques",
+      journeyTitle: geometricJourney.title,
+    },
+  );
 
   assert.match(trace, /On multiplie toujours par le même nombre\./);
-  assert.match(trace, /u\(n\+1\) = q × u\(n\)/);
+  assert.match(trace, /uₙ₊₁ = q × uₙ/);
   assert.match(trace, /800 × 1,25⁴ ≈ 1 953/);
   assert.match(trace, /aucune donnée personnelle n’a été transmise/);
 });

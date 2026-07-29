@@ -5,6 +5,21 @@ export type StudentTraceProgress = {
   pathTags: string[];
 };
 
+export type StudentTraceContent = {
+  levelLabel: string;
+  chapterTitle: string;
+  journeyTitle: string;
+  fallbackConjecture: string;
+  rule: string;
+  formulas: string[];
+  note: string;
+  examples: Array<{
+    label: string;
+    formula: string;
+    explanation: string;
+  }>;
+};
+
 const pathHighlights: Record<string, string> = {
   "intuition-proportionnelle":
     "J’ai reconnu une multiplication répétée par le même nombre.",
@@ -24,6 +39,13 @@ const pathHighlights: Record<string, string> = {
     "J’ai comparé les valeurs juste avant et juste après le seuil.",
   "defi-decroissance":
     "J’ai étendu le modèle à une évolution décroissante.",
+  "voie-defi": "Ma première réponse m’a permis d’accéder à un défi.",
+  "detour-guide": "J’ai utilisé un détour guidé pour consolider un repère.",
+  "defi-reussi": "J’ai réussi le défi proposé après le diagnostic.",
+  "defi-repris": "J’ai repris le défi grâce à la rétroaction.",
+  "application-reussie": "J’ai transféré la méthode dans une nouvelle situation.",
+  "application-reprise":
+    "J’ai corrigé mon application grâce à une explication ciblée.",
 };
 
 export function getPathHighlights(pathTags: string[]): string[] {
@@ -53,15 +75,16 @@ export function formatCompletionDate(completedAt: string | null): string {
 
 export function createStudentTraceText(
   progress: StudentTraceProgress,
+  content: StudentTraceContent,
 ): string {
   const highlights = getPathHighlights(progress.pathTags);
   const conjecture =
-    progress.conjecture.trim() ||
-    "Une suite semble géométrique lorsque l’on multiplie toujours le terme précédent par le même nombre.";
+    progress.conjecture.trim() || content.fallbackConjecture;
 
   return [
     "HORIZON MATHS — MA TRACE DE DÉCOUVERTE",
-    "Terminale · Suites géométriques",
+    `${content.levelLabel} · ${content.chapterTitle}`,
+    content.journeyTitle,
     `Parcours terminé le ${formatCompletionDate(progress.completedAt)}`,
     "",
     "Nom / prénom : ______________________________",
@@ -75,14 +98,15 @@ export function createStudentTraceText(
     `• ${progress.hintsUsed.length} indice(s) consulté(s).`,
     "",
     "CE QUE JE RETIENS",
-    "Une suite est géométrique lorsque chaque terme s’obtient en multipliant le précédent par un même nombre q, appelé raison.",
-    "u(n+1) = q × u(n)     et     u(n) = u(0) × q^n",
-    "Si q > 1, la suite augmente. Si 0 < q < 1, elle diminue.",
+    content.rule,
+    ...content.formulas,
+    content.note,
     "",
     "EXEMPLES DU PARCOURS",
-    "• Vidéo : 120 × 1,5² = 270 vues après deux nouvelles heures.",
-    "• Bactéries : 800 × 1,25⁴ ≈ 1 953 ; le seuil de 1 800 est franchi au cycle 4.",
-    "• Dépréciation : 1 000 × 0,8² = 640 € après deux ans.",
+    ...content.examples.map(
+      (example) =>
+        `• ${example.label} : ${example.formula} — ${example.explanation}`,
+    ),
     "",
     "APRÈS LA MISE EN COMMUN",
     "________________________________________________________________",
