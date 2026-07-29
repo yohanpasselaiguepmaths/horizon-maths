@@ -1957,6 +1957,44 @@ footer a,
   max-width: 650px;
 }
 
+.teacher-heading-actions {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.teacher-heading-actions .primary-button,
+.teacher-heading-actions .secondary-button {
+  margin: 0;
+}
+
+.class-create-panel {
+  align-items: end;
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(240px, 0.7fr) minmax(520px, 1.3fr);
+  margin-bottom: 18px;
+}
+
+.class-create-panel h2 {
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 500;
+  margin: 4px 0 8px;
+}
+
+.class-create-panel p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.class-create-panel .inline-create-form {
+  margin-top: 0;
+}
+
 .teacher-context {
   align-items: end;
   background: #eeeadf;
@@ -3806,6 +3844,15 @@ footer a,
     gap: 22px;
   }
 
+  .teacher-heading-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .class-create-panel {
+    grid-template-columns: 1fr;
+  }
+
   .section-heading {
     display: flex;
   }
@@ -4093,6 +4140,11 @@ footer a,
   .inline-create-form,
   .student-create-form {
     grid-template-columns: 1fr;
+  }
+
+  .teacher-heading-actions .primary-button,
+  .teacher-heading-actions .secondary-button {
+    width: 100%;
   }
 
   .class-code-card {

@@ -716,6 +716,7 @@ function TeacherDashboard({
   const [studentLogin, setStudentLogin] = useState("");
   const [studentPassword, setStudentPassword] = useState("");
   const [showAddStudent, setShowAddStudent] = useState(false);
+  const [showCreateClass, setShowCreateClass] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -847,6 +848,7 @@ function TeacherDashboard({
         const created = await createTeacherClass(className, classLevel);
         setSelectedClassId(created.id);
         setClassName("");
+        setShowCreateClass(false);
       },
       "Classe créée. Son code est prêt à être transmis.",
     );
@@ -972,6 +974,39 @@ function TeacherDashboard({
     onSignedOut();
   }
 
+  const classCreationForm = (
+    <form className="inline-create-form" onSubmit={handleCreateClass}>
+      <label>
+        Nom de la classe
+        <input
+          value={className}
+          onChange={(event) => setClassName(event.target.value)}
+          placeholder="Ex. TMCV1"
+          minLength={2}
+          maxLength={80}
+          required
+        />
+      </label>
+      <label>
+        Niveau
+        <select
+          value={classLevel}
+          onChange={(event) =>
+            setClassLevel(event.target.value as TeacherClass["level"])
+          }
+        >
+          <option value="seconde">Seconde</option>
+          <option value="premiere">Première</option>
+          <option value="terminale">Terminale</option>
+          <option value="mixte">Groupe mixte</option>
+        </select>
+      </label>
+      <button type="submit" className="primary-button" disabled={busy}>
+        Créer la classe →
+      </button>
+    </form>
+  );
+
   if (!snapshot.classes.length) {
     return (
       <main className="teacher-page teacher-empty-page">
@@ -991,36 +1026,7 @@ function TeacherDashboard({
             Un code de six caractères sera généré automatiquement. Vous pourrez
             ensuite créer les accès pseudonymes des élèves.
           </p>
-          <form className="inline-create-form" onSubmit={handleCreateClass}>
-            <label>
-              Nom de la classe
-              <input
-                value={className}
-                onChange={(event) => setClassName(event.target.value)}
-                placeholder="Ex. TMCV1"
-                minLength={2}
-                maxLength={80}
-                required
-              />
-            </label>
-            <label>
-              Niveau
-              <select
-                value={classLevel}
-                onChange={(event) =>
-                  setClassLevel(event.target.value as TeacherClass["level"])
-                }
-              >
-                <option value="seconde">Seconde</option>
-                <option value="premiere">Première</option>
-                <option value="terminale">Terminale</option>
-                <option value="mixte">Groupe mixte</option>
-              </select>
-            </label>
-            <button type="submit" className="primary-button" disabled={busy}>
-              Créer la classe →
-            </button>
-          </form>
+          {classCreationForm}
           {error && <p className="form-message error">{error}</p>}
         </section>
       </main>
@@ -1053,16 +1059,40 @@ function TeacherDashboard({
             produisent ni note, ni classement.
           </p>
         </div>
-        <button
-          type="button"
-          className="primary-button"
-          onClick={() =>
-            onPreview(selectedChapterId, selectedJourney.startStepId)
-          }
-        >
-          ▶ Prévisualiser le parcours
-        </button>
+        <div className="teacher-heading-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            aria-expanded={showCreateClass}
+            onClick={() => setShowCreateClass((current) => !current)}
+          >
+            {showCreateClass ? "Fermer" : "+ Nouvelle classe"}
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() =>
+              onPreview(selectedChapterId, selectedJourney.startStepId)
+            }
+          >
+            ▶ Prévisualiser le parcours
+          </button>
+        </div>
       </div>
+
+      {showCreateClass && (
+        <section className="dashboard-card class-create-panel">
+          <div>
+            <span className="section-kicker">Nouvelle classe</span>
+            <h2>Créer un autre groupe.</h2>
+            <p>
+              La classe actuelle reste intacte. Un nouveau code sera généré
+              automatiquement.
+            </p>
+          </div>
+          {classCreationForm}
+        </section>
+      )}
 
       <section className="teacher-context real-context">
         <label>
