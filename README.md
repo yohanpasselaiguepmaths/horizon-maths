@@ -3,6 +3,9 @@
 Site pédagogique de mathématiques pour la voie professionnelle, conçu autour
 de parcours adaptatifs courts et explicables.
 
+Version publique sans connexion :
+<https://yohanpasselaiguepmaths.github.io/horizon-maths/>
+
 ## Architecture
 
 - `app/content/curriculum.ts` : catalogue des niveaux, spécialités et chapitres.
@@ -52,4 +55,5 @@ pnpm install
 pnpm run dev
 pnpm run test:journey
 pnpm run build
+pnpm run build:pages
 ```
