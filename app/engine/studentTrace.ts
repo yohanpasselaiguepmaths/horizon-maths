@@ -112,6 +112,6 @@ export function createStudentTraceText(
     "________________________________________________________________",
     "________________________________________________________________",
     "",
-    "Trace créée localement : aucune donnée personnelle n’a été transmise.",
+    "Trace issue de l’espace personnel Horizon Maths.",
   ].join("\n");
 }

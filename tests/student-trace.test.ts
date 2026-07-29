@@ -48,5 +48,5 @@ test("le téléchargement contient la conjecture et les résultats de référenc
   assert.match(trace, /On multiplie toujours par le même nombre\./);
   assert.match(trace, /uₙ₊₁ = q × uₙ/);
   assert.match(trace, /800 × 1,25⁴ ≈ 1 953/);
-  assert.match(trace, /aucune donnée personnelle n’a été transmise/);
+  assert.match(trace, /espace personnel Horizon Maths/);
 });

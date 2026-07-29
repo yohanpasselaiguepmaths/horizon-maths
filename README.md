@@ -21,10 +21,12 @@ Seconde, 10 en Première et 7 en Terminale.
   choisit l'étape suivante.
 - `app/engine/studentTrace.ts` : synthèse personnelle, reformulation positive
   des détours et export texte.
-- `app/ui/MathsApp.tsx` : interface élève, progression locale et aperçu
+- `app/data/cloud.ts` : comptes, synchronisation et opérations sécurisées.
+- `app/ui/AccountViews.tsx` : connexion élève, espace personnel et tableau
   enseignant.
-- `tests/journey-engine.test.ts` et `tests/all-journeys.test.ts` : vérification
-  de toutes les branches et de l'absence de cul-de-sac.
+- `app/ui/MathsApp.tsx` : interface, navigation et progression.
+- `supabase/migrations/` : schéma, règles d'accès et fonctions de la base.
+- `tests/` : vérification des parcours, des traces et des garanties du schéma.
 
 Les contenus pédagogiques sont séparés du moteur et de l'interface. Les
 parcours ne dépendent d'aucun service d'IA : à réponse identique, le même chemin
@@ -44,16 +46,40 @@ Le parcours approfondi sur les suites géométriques comporte huit étapes. Les 
 autres parcours suivent une structure resserrée en six étapes : diagnostic,
 détour guidé ou défi, méthode, application, conjecture et trace élève.
 
-## Données et suivi
+## Espaces personnels et suivi
 
-La progression élève est conservée uniquement dans le navigateur. À la fin du
-parcours, une fiche A4 reprend la conjecture, les apprentissages, les formules
-et les exemples : elle peut être imprimée, enregistrée en PDF ou téléchargée en
-texte. Le site est accessible sans compte.
+Un élève se connecte avec un code de classe, un pseudonyme, un identifiant et un
+mot de passe. Aucun nom complet, aucune adresse e-mail élève et aucun compte
+ChatGPT ne sont nécessaires. La progression est synchronisée entre les
+appareils et reste aussi disponible localement pendant le travail.
 
-L'espace enseignant est une démonstration explicite fondée sur des données
-fictives et anonymisées ; aucun compte, suivi de classe réel ou donnée
-personnelle n'est créé.
+À la fin du parcours, une fiche A4 reprend la conjecture, les apprentissages,
+les formules et les exemples : elle peut être imprimée, enregistrée en PDF ou
+téléchargée en texte. L'élève peut également exporter ou supprimer son espace.
+
+L'enseignant crée ses classes et les accès pseudonymes. Son tableau montre les
+parcours commencés ou terminés, les voies empruntées et les conjectures, sans
+note ni classement. Il peut exporter une classe, renouveler un mot de passe,
+effacer une progression ou supprimer un espace.
+
+Les mots de passe élèves sont hachés, les sessions expirent, les tentatives
+répétées sont temporairement bloquées et les règles d'accès isolent les
+données de chaque enseignant. Aucune clé d'administration n'est envoyée au
+navigateur.
+
+## Connexion de la base Supabase
+
+1. Créer un projet Supabase dans une région européenne.
+2. Exécuter le fichier
+   `supabase/migrations/20260729160000_horizon_accounts.sql` dans l'éditeur SQL.
+3. Récupérer l'URL du projet et sa clé publique.
+4. Ajouter les secrets GitHub `VITE_SUPABASE_URL` et
+   `VITE_SUPABASE_PUBLISHABLE_KEY`.
+5. Relancer le déploiement GitHub Pages.
+
+Le fichier `.env.example` documente les deux variables nécessaires en local.
+Une clé `service_role` ou une clé secrète ne doit jamais être placée dans le
+site.
 
 ## Vérification locale
 

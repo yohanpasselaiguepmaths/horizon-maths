@@ -132,7 +132,8 @@ textarea:focus-visible {
 }
 
 .desktop-nav button,
-.teacher-switch {
+.teacher-switch,
+.student-switch {
   background: transparent;
   border: 0;
   border-radius: 999px;
@@ -147,18 +148,32 @@ textarea:focus-visible {
   background: var(--white);
 }
 
-.teacher-switch {
+.header-account-actions {
   align-items: center;
-  border: 1px solid rgba(23, 37, 31, 0.2);
   display: flex;
   gap: 8px;
   justify-self: end;
 }
 
+.teacher-switch,
+.student-switch {
+  align-items: center;
+  border: 1px solid rgba(23, 37, 31, 0.2);
+  display: flex;
+  gap: 8px;
+}
+
 .teacher-switch:hover,
-.teacher-switch.active {
+.teacher-switch.active,
+.student-switch:hover,
+.student-switch.active {
   background: var(--ink);
   color: var(--white);
+}
+
+.student-switch {
+  border-color: rgba(20, 95, 82, 0.32);
+  color: var(--green-dark);
 }
 
 .icon {
@@ -740,9 +755,24 @@ footer {
   margin-top: 2px;
 }
 
-footer a {
+footer a,
+.footer-links button {
   color: var(--white);
   font-weight: 800;
+}
+
+.footer-links {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer-links button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
 }
 
 .inner-page {
@@ -2633,6 +2663,923 @@ footer a {
   max-width: 560px;
 }
 
+.account-page,
+.student-space-page,
+.privacy-page {
+  min-height: calc(100vh - 78px);
+  padding: clamp(35px, 5vw, 75px) 6vw 90px;
+}
+
+.account-page {
+  background:
+    radial-gradient(circle at 13% 18%, rgba(217, 234, 117, 0.24), transparent 24%),
+    linear-gradient(130deg, #f7f2e8 0%, #edf2ec 100%);
+}
+
+.account-page > .breadcrumb,
+.privacy-page > .breadcrumb {
+  margin-bottom: 32px;
+}
+
+.account-layout {
+  align-items: center;
+  display: grid;
+  gap: clamp(45px, 8vw, 120px);
+  grid-template-columns: minmax(0, 1.05fr) minmax(390px, 0.75fr);
+  margin: 0 auto;
+  max-width: 1240px;
+}
+
+.account-intro h1,
+.setup-notice h1,
+.empty-class-card h1,
+.privacy-page header h1,
+.student-space-hero h1 {
+  font-family: var(--serif);
+  font-size: clamp(52px, 6vw, 86px);
+  font-weight: 500;
+  letter-spacing: -0.055em;
+  line-height: 0.96;
+  margin: 22px 0;
+}
+
+.account-intro > p,
+.setup-notice > p,
+.empty-class-card > p,
+.privacy-page header > p {
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.75;
+  max-width: 650px;
+}
+
+.account-promises {
+  border-top: 1px solid var(--border);
+  margin-top: 35px;
+  max-width: 620px;
+}
+
+.account-promises p {
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  font-size: 13px;
+  gap: 16px;
+  grid-template-columns: 30px 1fr;
+  margin: 0;
+  padding: 15px 0;
+}
+
+.account-promises span {
+  color: var(--green);
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+.auth-card {
+  background: var(--white);
+  border: 1px solid rgba(23, 37, 31, 0.14);
+  box-shadow: var(--shadow);
+  padding: clamp(28px, 4vw, 48px);
+}
+
+.auth-card-head {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+  padding-bottom: 22px;
+}
+
+.auth-card-head > span,
+.account-symbol {
+  align-items: center;
+  background: var(--green);
+  border-radius: 50%;
+  color: var(--white);
+  display: inline-flex;
+  font-family: var(--serif);
+  font-size: 25px;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.auth-card-head small {
+  color: var(--green);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.auth-card-head h2 {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  margin: 2px 0 0;
+}
+
+.auth-form {
+  display: grid;
+  gap: 17px;
+}
+
+.auth-form label,
+.inline-create-form label,
+.student-create-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 10px;
+  font-weight: 900;
+  gap: 7px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-form input,
+.inline-create-form input,
+.inline-create-form select,
+.student-create-form input {
+  background: #fbfaf6;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--ink);
+  min-height: 49px;
+  padding: 11px 13px;
+  text-transform: none;
+}
+
+.auth-form input::placeholder,
+.student-create-form input::placeholder {
+  color: #9da6a1;
+}
+
+.auth-form .primary-button {
+  justify-content: center;
+  margin: 6px 0 0;
+  width: 100%;
+}
+
+.auth-tabs {
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 26px;
+}
+
+.auth-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 12px;
+}
+
+.auth-tabs button.active {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.form-message {
+  border-radius: 4px;
+  font-size: 12px;
+  margin: 0;
+  padding: 11px 13px;
+}
+
+.form-message.error {
+  background: #fff0e8;
+  color: #8d3f23;
+}
+
+.form-message.success {
+  background: #e9f3e8;
+  color: var(--green-dark);
+}
+
+.privacy-link {
+  background: transparent;
+  border: 0;
+  color: var(--green);
+  cursor: pointer;
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  margin: 20px auto 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.setup-notice {
+  background: var(--white);
+  border: 1px solid var(--border);
+  margin: 5vh auto;
+  max-width: 820px;
+  padding: clamp(40px, 7vw, 85px);
+  text-align: center;
+}
+
+.setup-notice .account-symbol {
+  margin-bottom: 25px;
+}
+
+.setup-notice > p {
+  margin: 0 auto;
+}
+
+.student-space-page {
+  background:
+    radial-gradient(circle at 92% 5%, rgba(217, 234, 117, 0.22), transparent 20%),
+    var(--cream);
+}
+
+.student-space-hero {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 auto 30px;
+  max-width: 1280px;
+}
+
+.student-space-hero h1 {
+  font-size: clamp(48px, 6vw, 78px);
+  margin-bottom: 12px;
+}
+
+.student-space-hero p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.sync-badge {
+  align-items: center;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 9px 13px;
+}
+
+.sync-badge i {
+  background: #8b9690;
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
+}
+
+.sync-synced i {
+  background: #4f9b68;
+}
+
+.sync-syncing i {
+  animation: sync-pulse 1s infinite alternate;
+  background: #d9924f;
+}
+
+.sync-error i {
+  background: #b84f3b;
+}
+
+@keyframes sync-pulse {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+.personal-stats {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0 auto 18px;
+  max-width: 1280px;
+}
+
+.personal-stats article {
+  align-items: end;
+  background: var(--ink);
+  color: var(--white);
+  display: flex;
+  justify-content: space-between;
+  min-height: 120px;
+  padding: 22px;
+}
+
+.personal-stats article:nth-child(2) {
+  background: var(--green);
+}
+
+.personal-stats article:nth-child(3) {
+  background: var(--apricot);
+  color: var(--ink);
+}
+
+.personal-stats strong {
+  font-family: var(--serif);
+  font-size: 46px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.personal-stats span {
+  font-size: 11px;
+  font-weight: 800;
+  max-width: 105px;
+  text-align: right;
+}
+
+.personal-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1fr 1fr;
+  margin: 0 auto 18px;
+  max-width: 1280px;
+}
+
+.personal-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  min-height: 360px;
+  padding: clamp(24px, 3vw, 38px);
+}
+
+.personal-continue {
+  background:
+    linear-gradient(130deg, rgba(20, 95, 82, 0.97), rgba(13, 70, 61, 0.98)),
+    var(--green);
+  color: var(--white);
+}
+
+.personal-continue .section-kicker {
+  color: var(--lime);
+}
+
+.personal-continue > small {
+  color: #c1d4ca;
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 40px;
+  text-transform: uppercase;
+}
+
+.personal-continue h2,
+.personal-card-title h2,
+.personal-settings h2 {
+  font-family: var(--serif);
+  font-size: clamp(30px, 3vw, 42px);
+  font-weight: 500;
+  line-height: 1.05;
+  margin: 8px 0 14px;
+}
+
+.personal-continue > p {
+  color: #d6e0db;
+  max-width: 520px;
+}
+
+.personal-continue .primary-button {
+  background: var(--lime);
+  color: var(--ink);
+  margin-bottom: 0;
+}
+
+.level-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 35px;
+}
+
+.level-shortcuts button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--white);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.personal-card-title {
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 16px;
+}
+
+.personal-card-title h2 {
+  font-size: 30px;
+  margin-bottom: 0;
+}
+
+.personal-card-title > strong {
+  align-items: center;
+  background: var(--green-soft);
+  border-radius: 50%;
+  color: var(--green);
+  display: flex;
+  font-family: var(--serif);
+  font-size: 23px;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.personal-list {
+  display: grid;
+}
+
+.personal-list button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 28px 1fr auto;
+  padding: 15px 0;
+  text-align: left;
+}
+
+.personal-list button > span {
+  align-items: center;
+  background: var(--lime);
+  border-radius: 50%;
+  display: flex;
+  font-size: 10px;
+  height: 25px;
+  justify-content: center;
+  width: 25px;
+}
+
+.personal-list p,
+.personal-list strong,
+.personal-list small {
+  display: block;
+  margin: 0;
+}
+
+.personal-list strong {
+  font-size: 12px;
+}
+
+.personal-list small {
+  color: var(--muted);
+  font-size: 9px;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+.personal-list i {
+  color: var(--green);
+  font-style: normal;
+}
+
+.empty-copy {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 28px 0;
+}
+
+.all-progress-card {
+  margin: 0 auto 18px;
+  max-width: 1280px;
+  min-height: 0;
+}
+
+.progress-chapter-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 20px;
+}
+
+.progress-chapter-grid button {
+  background: #f8f7f2;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  min-height: 135px;
+  padding: 18px;
+  text-align: left;
+}
+
+.progress-chapter-grid button:hover {
+  border-color: var(--green);
+  transform: translateY(-2px);
+}
+
+.progress-chapter-grid small {
+  color: var(--green);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.progress-chapter-grid strong {
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.1;
+  margin: 8px 0 auto;
+}
+
+.progress-chapter-grid span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.personal-settings {
+  align-items: center;
+  background: #e5eee7;
+  display: grid;
+  gap: 60px;
+  grid-template-columns: 1fr auto;
+  margin: 0 auto;
+  max-width: 1280px;
+  padding: clamp(28px, 4vw, 48px);
+}
+
+.personal-settings p {
+  color: var(--muted);
+  max-width: 650px;
+}
+
+.personal-settings > div:last-child {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+  min-width: 260px;
+}
+
+.personal-settings .secondary-button {
+  justify-content: center;
+  margin: 0;
+}
+
+.danger-button {
+  background: transparent;
+  border: 1px solid #b74b3b;
+  border-radius: 5px;
+  color: #913828;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 11px 14px;
+}
+
+.teacher-auth-page {
+  padding-top: 80px;
+}
+
+.teacher-account-bar {
+  align-items: center;
+  background: var(--ink);
+  color: var(--white);
+  display: flex;
+  justify-content: space-between;
+  margin: -55px -6vw 50px;
+  padding: 14px 6vw;
+}
+
+.teacher-account-bar p,
+.teacher-account-bar strong,
+.teacher-account-bar small {
+  display: block;
+  margin: 0;
+}
+
+.teacher-account-bar strong {
+  font-size: 12px;
+}
+
+.teacher-account-bar small {
+  color: #aebbb5;
+  font-size: 9px;
+}
+
+.teacher-account-bar > div {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+}
+
+.teacher-account-bar .secondary-button {
+  background: transparent;
+  border-color: #63716a;
+  color: var(--white);
+  margin: 0;
+  min-height: 36px;
+  padding: 7px 11px;
+}
+
+.teacher-account-bar .text-button {
+  color: var(--white);
+}
+
+.teacher-empty-page {
+  min-height: calc(100vh - 78px);
+}
+
+.empty-class-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  margin: 8vh auto;
+  max-width: 880px;
+  padding: clamp(35px, 6vw, 75px);
+}
+
+.empty-class-card h1 {
+  font-size: clamp(48px, 6vw, 72px);
+}
+
+.inline-create-form {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.4fr 1fr auto;
+  margin-top: 32px;
+}
+
+.inline-create-form .primary-button {
+  margin: 0;
+  min-height: 49px;
+}
+
+.real-context {
+  align-items: stretch;
+}
+
+.class-code-card {
+  background: var(--ink);
+  border: 0;
+  color: var(--white);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  margin-left: auto;
+  min-width: 220px;
+  padding: 10px 18px;
+  text-align: left;
+}
+
+.class-code-card small {
+  color: #aebbb5;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.class-code-card strong {
+  color: var(--lime);
+  font-family: var(--serif);
+  font-size: 27px;
+  letter-spacing: 0.18em;
+  line-height: 1.15;
+}
+
+.dashboard-message {
+  margin: 12px 0;
+}
+
+.student-management {
+  margin-bottom: 18px;
+  min-height: 0;
+}
+
+.student-management .dashboard-title {
+  align-items: center;
+}
+
+.student-management .secondary-button {
+  margin: 0;
+}
+
+.student-create-form {
+  align-items: end;
+  background: #eef3ed;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.2fr 1fr 1fr auto;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.student-create-form label > small {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.student-create-form .primary-button {
+  margin: 0;
+  min-height: 49px;
+  padding: 10px 15px;
+}
+
+.student-table-wrap {
+  overflow-x: auto;
+}
+
+.student-table {
+  border-collapse: collapse;
+  margin-top: 20px;
+  min-width: 840px;
+  width: 100%;
+}
+
+.student-table th,
+.student-table td {
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  padding: 13px 10px;
+  text-align: left;
+}
+
+.student-table th {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.student-table code {
+  background: #eef1ed;
+  color: var(--green-dark);
+  font-size: 10px;
+  padding: 4px 6px;
+}
+
+.table-status {
+  background: #ecefeb;
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 900;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
+
+.table-status.active {
+  background: var(--apricot-soft);
+  color: #8c4c20;
+}
+
+.table-status.done {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.row-actions {
+  position: relative;
+}
+
+.row-actions summary {
+  color: var(--green);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 900;
+  list-style: none;
+}
+
+.row-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.row-actions > div {
+  background: var(--white);
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 35px rgba(23, 37, 31, 0.16);
+  display: grid;
+  min-width: 190px;
+  padding: 6px;
+  position: absolute;
+  right: 0;
+  top: 24px;
+  z-index: 5;
+}
+
+.row-actions button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 8px;
+  text-align: left;
+}
+
+.danger-text {
+  color: #a33d2f;
+}
+
+.teacher-danger-zone {
+  align-items: center;
+  border: 1px solid #e3b5aa;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding: 18px 22px;
+}
+
+.teacher-danger-zone small {
+  color: #9d4434;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.teacher-danger-zone p {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 4px 0 0;
+}
+
+.privacy-page {
+  background:
+    radial-gradient(circle at 90% 8%, rgba(67, 105, 168, 0.13), transparent 25%),
+    var(--cream);
+}
+
+.privacy-page header {
+  margin: 0 auto 45px;
+  max-width: 1050px;
+}
+
+.privacy-page header h1 {
+  max-width: 850px;
+}
+
+.privacy-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, 1fr);
+  margin: 0 auto;
+  max-width: 1050px;
+}
+
+.privacy-grid section {
+  background: var(--white);
+  border: 1px solid var(--border);
+  min-height: 230px;
+  padding: 28px;
+}
+
+.privacy-grid section > span {
+  color: var(--green);
+  font-family: var(--serif);
+  font-size: 24px;
+  font-style: italic;
+}
+
+.privacy-grid h2 {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  margin: 17px 0 8px;
+}
+
+.privacy-grid p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.privacy-note {
+  background: var(--ink);
+  color: var(--white);
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 0.4fr 1.6fr;
+  margin: 14px auto 0;
+  max-width: 1050px;
+  padding: 25px 30px;
+}
+
+.privacy-note strong {
+  color: var(--lime);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.privacy-note p {
+  color: #c4cec9;
+  font-size: 12px;
+  margin: 0;
+}
+
 @media (max-width: 1050px) {
   .hero {
     grid-template-columns: 1fr;
@@ -2692,6 +3639,27 @@ footer a {
   .teacher-stats {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .site-header {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .account-layout {
+    gap: 45px;
+    grid-template-columns: 1fr 0.85fr;
+  }
+
+  .progress-chapter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .student-create-form {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .student-create-form .primary-button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 760px) {
@@ -2711,6 +3679,19 @@ footer a {
 
   .teacher-switch > span:last-child {
     display: none;
+  }
+
+  .student-switch > span:last-child {
+    display: none;
+  }
+
+  .header-account-actions {
+    gap: 5px;
+  }
+
+  .student-switch,
+  .teacher-switch {
+    padding: 9px 11px;
   }
 
   .brand-mark {
@@ -3002,6 +3983,108 @@ footer a {
   .teacher-stats,
   .teacher-grid {
     grid-template-columns: 1fr;
+  }
+
+  .account-page,
+  .student-space-page,
+  .privacy-page {
+    min-height: calc(100vh - 66px);
+    padding: 35px 22px 65px;
+  }
+
+  .account-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .account-intro h1,
+  .setup-notice h1,
+  .empty-class-card h1,
+  .privacy-page header h1,
+  .student-space-hero h1 {
+    font-size: clamp(44px, 13vw, 60px);
+  }
+
+  .auth-card {
+    padding: 27px 20px;
+  }
+
+  .student-space-hero {
+    align-items: start;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .personal-stats,
+  .personal-grid,
+  .privacy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .personal-stats article {
+    min-height: 100px;
+  }
+
+  .progress-chapter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .personal-settings {
+    align-items: stretch;
+    gap: 25px;
+    grid-template-columns: 1fr;
+  }
+
+  .personal-settings > div:last-child {
+    min-width: 0;
+  }
+
+  .teacher-account-bar {
+    align-items: start;
+    flex-direction: column;
+    gap: 15px;
+    margin: -35px -22px 35px;
+    padding: 16px 22px;
+  }
+
+  .teacher-account-bar > div {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .inline-create-form,
+  .student-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .class-code-card {
+    margin: 0;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .student-management {
+    padding: 20px;
+  }
+
+  .student-management .dashboard-title {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .teacher-danger-zone {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .privacy-note {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-links {
+    align-items: flex-start;
   }
 
   .class-synthesis,

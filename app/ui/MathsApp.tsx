@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   audienceLabels,
   chapters,
@@ -21,31 +21,44 @@ import {
   formatCompletionDate,
   getPathHighlights,
 } from "../engine/studentTrace";
+import type {
+  JourneyProgress,
+  ProgressStore,
+  StudentCloudSnapshot,
+  StudentIdentity,
+  SyncStatus,
+} from "../data/accountTypes";
+import {
+  isCloudConfigured,
+  logoutStudent,
+  restoreStudentSession,
+  syncStudentProgress,
+} from "../data/cloud";
+import {
+  clearStoredStudentSession,
+  PrivacyView,
+  readStoredStudentSession,
+  removeStudentAccountWithSession,
+  StudentAccessView,
+  StudentSpaceView,
+  TeacherPortal,
+} from "./AccountViews";
 
 type View =
   | { name: "home" }
   | { name: "level"; level: LevelId }
   | { name: "chapter"; chapterId: string }
-  | { name: "journey"; chapterId: string }
+  | { name: "journey"; chapterId: string; preview?: boolean }
   | { name: "trace"; chapterId: string }
-  | { name: "teacher" };
-
-type JourneyProgress = {
-  currentStepId: string;
-  visited: string[];
-  completed: boolean;
-  completedAt: string | null;
-  conjecture: string;
-  errors: string[];
-  hintsUsed: string[];
-  pathTags: string[];
-  answers: Record<string, string>;
-};
-
-type ProgressStore = Record<string, JourneyProgress>;
+  | { name: "student-access" }
+  | { name: "student-space" }
+  | { name: "teacher" }
+  | { name: "privacy" };
 
 const STORAGE_KEY = "horizon-maths-progress-v2";
 const LEGACY_STORAGE_KEY = "horizon-maths-geometric-v1";
+const STUDENT_OWNER_KEY = "horizon-maths-progress-owner-v1";
+const STUDENT_DIRTY_KEY = "horizon-maths-progress-dirty-v1";
 
 function createEmptyProgress(journey: LearningJourney): JourneyProgress {
   return {
@@ -87,7 +100,8 @@ function Icon({
     | "lock"
     | "route"
     | "home"
-    | "light";
+    | "light"
+    | "user";
   size?: number;
 }) {
   const glyphs = {
@@ -102,6 +116,7 @@ function Icon({
     route: "⌁",
     home: "⌂",
     light: "◌",
+    user: "●",
   };
   return (
     <span className="icon" style={{ fontSize: size }} aria-hidden="true">
@@ -121,12 +136,16 @@ function AudienceBadge({ audience }: { audience: Audience }) {
 
 function Header({
   view,
+  student,
   onNavigate,
 }: {
   view: View;
+  student: StudentIdentity | null;
   onNavigate: (view: View) => void;
 }) {
   const isTeacher = view.name === "teacher";
+  const isStudent =
+    view.name === "student-access" || view.name === "student-space";
   return (
     <header className="site-header">
       <button
@@ -155,15 +174,28 @@ function Header({
           </button>
         ))}
       </nav>
-      <button
-        type="button"
-        className={`teacher-switch ${isTeacher ? "active" : ""}`}
-        onClick={() => onNavigate({ name: "teacher" })}
-        aria-label="Espace enseignant"
-      >
-        <Icon name="teacher" />
-        <span>Espace enseignant</span>
-      </button>
+      <div className="header-account-actions">
+        <button
+          type="button"
+          className={`student-switch ${isStudent ? "active" : ""}`}
+          onClick={() =>
+            onNavigate({ name: student ? "student-space" : "student-access" })
+          }
+          aria-label={student ? `Espace de ${student.displayName}` : "Espace élève"}
+        >
+          <Icon name="user" />
+          <span>{student?.displayName ?? "Espace élève"}</span>
+        </button>
+        <button
+          type="button"
+          className={`teacher-switch ${isTeacher ? "active" : ""}`}
+          onClick={() => onNavigate({ name: "teacher" })}
+          aria-label="Espace enseignant"
+        >
+          <Icon name="teacher" />
+          <span>Espace enseignant</span>
+        </button>
+      </div>
     </header>
   );
 }
@@ -234,6 +266,9 @@ function HomeView({
               </span>
               <span>
                 <Icon name="check" /> 23 parcours actifs
+              </span>
+              <span>
+                <Icon name="user" /> Espace personnel
               </span>
             </div>
           </div>
@@ -339,7 +374,7 @@ function HomeView({
           </div>
         </section>
       </main>
-      <Footer />
+      <Footer onPrivacy={() => onNavigate({ name: "privacy" })} />
     </>
   );
 }
@@ -641,8 +676,9 @@ function ChapterView({
             )}
           </div>
           <p className="privacy-line">
-            <Icon name="lock" /> Ta progression reste sur cet appareil. Aucun classement,
-            aucune donnée envoyée à une IA.
+            <Icon name="lock" /> Avec ton espace élève, ta progression te suit
+            sur tous tes appareils. Aucun classement, aucune donnée envoyée à
+            une IA.
           </p>
         </div>
         <div className="chapter-map">
@@ -1371,7 +1407,7 @@ function TraceView({
 
         <div className="student-trace-footer">
           <p>
-            Trace créée sur cet appareil · aucune donnée personnelle transmise
+            Trace enregistrée dans l’espace élève lorsqu’il est connecté
           </p>
           <span>horizon maths · voie professionnelle</span>
         </div>
@@ -1379,8 +1415,8 @@ function TraceView({
 
       <div className="trace-after" data-print-hidden="true">
         <p>
-          Cette fiche reste disponible sur cet appareil. Télécharge-la pour la
-          conserver même si l’historique du navigateur est effacé.
+          Cette fiche est synchronisée dans ton espace personnel lorsque tu es
+          connecté. Tu peux aussi la télécharger ou l’enregistrer en PDF.
         </p>
         <button type="button" className="text-button" onClick={onRestart}>
           Refaire le parcours <Icon name="arrow" />
@@ -1604,7 +1640,7 @@ function TeacherView({
   );
 }
 
-function Footer() {
+function Footer({ onPrivacy }: { onPrivacy: () => void }) {
   return (
     <footer>
       <div className="footer-brand">
@@ -1612,16 +1648,21 @@ function Footer() {
         <p><strong>HORIZON MATHS</strong><small>Comprendre avant d’apprendre.</small></p>
       </div>
       <p>
-        Pensé pour la voie professionnelle · progression locale · aucune donnée
-        personnelle transmise.
+        Pensé pour la voie professionnelle · espace personnel pseudonymisé ·
+        aucun compte ChatGPT nécessaire.
       </p>
-      <a
-        href="https://eduscol.education.gouv.fr/5895/programmes-et-ressources-en-mathematiques-voie-professionnelle"
-        target="_blank"
-        rel="noreferrer"
-      >
-        Programmes officiels ↗
-      </a>
+      <div className="footer-links">
+        <button type="button" onClick={onPrivacy}>
+          Protection des données
+        </button>
+        <a
+          href="https://eduscol.education.gouv.fr/5895/programmes-et-ressources-en-mathematiques-voie-professionnelle"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Programmes officiels ↗
+        </a>
+      </div>
     </footer>
   );
 }
@@ -1630,6 +1671,17 @@ export function MathsApp() {
   const [view, setView] = useState<View>({ name: "home" });
   const [progressStore, setProgressStore] = useState<ProgressStore>({});
   const [hydrated, setHydrated] = useState(false);
+  const [studentSessionToken, setStudentSessionToken] = useState("");
+  const [studentIdentity, setStudentIdentity] =
+    useState<StudentIdentity | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("local");
+  const [previewProgress, setPreviewProgress] =
+    useState<JourneyProgress | null>(null);
+  const progressStoreRef = useRef(progressStore);
+
+  useEffect(() => {
+    progressStoreRef.current = progressStore;
+  }, [progressStore]);
 
   useEffect(() => {
     try {
@@ -1685,6 +1737,51 @@ export function MathsApp() {
   }, [progressStore, hydrated]);
 
   useEffect(() => {
+    if (!hydrated || !isCloudConfigured) return;
+    const storedSession = readStoredStudentSession();
+    if (!storedSession) return;
+
+    let cancelled = false;
+    void restoreStudentSession(storedSession).then((snapshot) => {
+      if (cancelled) return;
+      if (!snapshot) {
+        clearStoredStudentSession();
+        return;
+      }
+      const hasUnsyncedLocalProgress =
+        window.localStorage.getItem(STUDENT_OWNER_KEY) ===
+          snapshot.identity.id &&
+        window.localStorage.getItem(STUDENT_DIRTY_KEY) === "true";
+      setStudentSessionToken(storedSession);
+      setStudentIdentity(snapshot.identity);
+      setProgressStore(
+        hasUnsyncedLocalProgress
+          ? { ...snapshot.progressStore, ...progressStoreRef.current }
+          : snapshot.progressStore,
+      );
+      window.localStorage.setItem(STUDENT_OWNER_KEY, snapshot.identity.id);
+      setSyncStatus("synced");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !studentSessionToken || !studentIdentity) return;
+    const timer = window.setTimeout(() => {
+      setSyncStatus("syncing");
+      void syncStudentProgress(studentSessionToken, progressStore)
+        .then(() => {
+          window.localStorage.removeItem(STUDENT_DIRTY_KEY);
+          setSyncStatus("synced");
+        })
+        .catch(() => setSyncStatus("error"));
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [hydrated, progressStore, studentIdentity, studentSessionToken]);
+
+  useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [view]);
 
@@ -1700,7 +1797,9 @@ export function MathsApp() {
     : undefined;
   const selectedProgress =
     activeChapterId && selectedJourney
-      ? getChapterProgress(progressStore, activeChapterId)
+      ? view.name === "journey" && view.preview
+        ? previewProgress ?? createEmptyProgress(selectedJourney)
+        : getChapterProgress(progressStore, activeChapterId)
       : undefined;
 
   function setChapterProgress(
@@ -1713,6 +1812,9 @@ export function MathsApp() {
         typeof action === "function"
           ? (action as (value: JourneyProgress) => JourneyProgress)(current)
           : action;
+      if (studentSessionToken) {
+        window.localStorage.setItem(STUDENT_DIRTY_KEY, "true");
+      }
       return { ...currentStore, [chapterId]: next };
     });
   }
@@ -1721,6 +1823,9 @@ export function MathsApp() {
     const journey = journeyRegistry[chapterId];
     if (!journey) return;
     if (reset) {
+      if (studentSessionToken) {
+        window.localStorage.setItem(STUDENT_DIRTY_KEY, "true");
+      }
       setProgressStore((current) => ({
         ...current,
         [chapterId]: createEmptyProgress(journey),
@@ -1732,19 +1837,58 @@ export function MathsApp() {
   function previewStep(chapterId: string, stepId: string) {
     const journey = journeyRegistry[chapterId];
     if (!journey) return;
-    setProgressStore((current) => ({
-      ...current,
-      [chapterId]: {
-        ...createEmptyProgress(journey),
-        currentStepId: stepId,
-      },
-    }));
-    setView({ name: "journey", chapterId });
+    setPreviewProgress({
+      ...createEmptyProgress(journey),
+      currentStepId: stepId,
+    });
+    setView({ name: "journey", chapterId, preview: true });
+  }
+
+  function connectStudent(snapshot: StudentCloudSnapshot, token: string) {
+    setStudentSessionToken(token);
+    setStudentIdentity(snapshot.identity);
+    setProgressStore(snapshot.progressStore);
+    window.localStorage.setItem(STUDENT_OWNER_KEY, snapshot.identity.id);
+    window.localStorage.removeItem(STUDENT_DIRTY_KEY);
+    setSyncStatus("synced");
+    setView({ name: "student-space" });
+  }
+
+  async function disconnectStudent() {
+    if (studentSessionToken) {
+      await logoutStudent(studentSessionToken);
+    }
+    clearStoredStudentSession();
+    window.localStorage.removeItem(STUDENT_OWNER_KEY);
+    window.localStorage.removeItem(STUDENT_DIRTY_KEY);
+    setStudentSessionToken("");
+    setStudentIdentity(null);
+    setProgressStore({});
+    setSyncStatus("local");
+    setView({ name: "home" });
+  }
+
+  async function deleteCurrentStudent() {
+    if (!studentSessionToken) return;
+    await removeStudentAccountWithSession(studentSessionToken);
+    window.localStorage.removeItem(STUDENT_OWNER_KEY);
+    window.localStorage.removeItem(STUDENT_DIRTY_KEY);
+    setStudentSessionToken("");
+    setStudentIdentity(null);
+    setProgressStore({});
+    setSyncStatus("local");
+    setView({ name: "home" });
   }
 
   return (
     <div className="app-shell">
-      {view.name !== "journey" && <Header view={view} onNavigate={setView} />}
+      {view.name !== "journey" && (
+        <Header
+          view={view}
+          student={studentIdentity}
+          onNavigate={setView}
+        />
+      )}
       {view.name === "home" && (
         <HomeView
           progress={getChapterProgress(
@@ -1778,10 +1922,20 @@ export function MathsApp() {
           chapter={selectedChapter}
           journey={selectedJourney}
           progress={selectedProgress}
-          setProgress={(action) =>
-            setChapterProgress(selectedChapter.id, action)
+          setProgress={
+            view.name === "journey" && view.preview
+              ? setPreviewProgress as React.Dispatch<
+                  React.SetStateAction<JourneyProgress>
+                >
+              : (action) => setChapterProgress(selectedChapter.id, action)
           }
-          onNavigate={setView}
+          onNavigate={(target) =>
+            view.name === "journey" &&
+            view.preview &&
+            (target.name === "chapter" || target.name === "trace")
+              ? setView({ name: "teacher" })
+              : setView(target)
+          }
         />
       )}
       {view.name === "trace" &&
@@ -1797,7 +1951,49 @@ export function MathsApp() {
         />
       )}
       {view.name === "teacher" && (
-        <TeacherView onNavigate={setView} onPreview={previewStep} />
+        <TeacherPortal onPreview={previewStep} />
+      )}
+      {view.name === "student-access" && (
+        <StudentAccessView
+          onConnected={connectStudent}
+          onBack={() => setView({ name: "home" })}
+          onPrivacy={() => setView({ name: "privacy" })}
+        />
+      )}
+      {view.name === "student-space" &&
+        (studentIdentity ? (
+          <StudentSpaceView
+            identity={studentIdentity}
+            progressStore={progressStore}
+            syncStatus={syncStatus}
+            onOpenChapter={(chapterId) =>
+              setView({ name: "chapter", chapterId })
+            }
+            onOpenTrace={(chapterId) =>
+              setView({ name: "trace", chapterId })
+            }
+            onBrowseLevel={(level) => setView({ name: "level", level })}
+            onLogout={disconnectStudent}
+            onDeleted={deleteCurrentStudent}
+            onPrivacy={() => setView({ name: "privacy" })}
+          />
+        ) : (
+          <StudentAccessView
+            onConnected={connectStudent}
+            onBack={() => setView({ name: "home" })}
+            onPrivacy={() => setView({ name: "privacy" })}
+          />
+        ))}
+      {view.name === "privacy" && (
+        <PrivacyView
+          onBack={() =>
+            setView(
+              studentIdentity
+                ? { name: "student-space" }
+                : { name: "home" },
+            )
+          }
+        />
       )}
     </div>
   );
