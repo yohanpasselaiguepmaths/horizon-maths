@@ -10,6 +10,8 @@ de parcours adaptatifs courts et explicables.
   rétroactions, embranchements et métadonnées enseignantes.
 - `app/engine/journeyEngine.ts` : moteur déterministe qui classe une réponse et
   choisit l'étape suivante.
+- `app/engine/studentTrace.ts` : synthèse personnelle, reformulation positive
+  des détours et export texte.
 - `app/ui/MathsApp.tsx` : interface élève, progression locale et aperçu
   enseignant.
 - `tests/journey-engine.test.ts` : vérification de toutes les branches et de
@@ -34,10 +36,14 @@ le statut « parcours en préparation ».
 
 ## Données et suivi
 
-La progression élève est conservée uniquement dans le navigateur. L'espace
-enseignant est une démonstration explicite fondée sur des données fictives et
-anonymisées ; aucun compte, suivi de classe réel ou donnée personnelle n'est
-créé.
+La progression élève est conservée uniquement dans le navigateur. À la fin du
+parcours, une fiche A4 reprend la conjecture, les apprentissages, les formules
+et les exemples : elle peut être imprimée, enregistrée en PDF ou téléchargée en
+texte. Le site est accessible sans compte.
+
+L'espace enseignant est une démonstration explicite fondée sur des données
+fictives et anonymisées ; aucun compte, suivi de classe réel ou donnée
+personnelle n'est créé.
 
 ## Vérification locale
 

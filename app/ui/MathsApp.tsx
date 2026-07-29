@@ -16,18 +16,25 @@ import {
   type Route,
 } from "../content/geometricJourney";
 import { classifyAnswer } from "../engine/journeyEngine";
+import {
+  createStudentTraceText,
+  formatCompletionDate,
+  getPathHighlights,
+} from "../engine/studentTrace";
 
 type View =
   | { name: "home" }
   | { name: "level"; level: LevelId }
   | { name: "chapter"; chapterId: string }
   | { name: "journey" }
+  | { name: "trace" }
   | { name: "teacher" };
 
 type JourneyProgress = {
   currentStepId: string;
   visited: string[];
   completed: boolean;
+  completedAt: string | null;
   conjecture: string;
   errors: string[];
   hintsUsed: string[];
@@ -41,6 +48,7 @@ const emptyProgress: JourneyProgress = {
   currentStepId: geometricJourney.startStepId,
   visited: [],
   completed: false,
+  completedAt: null,
   conjecture: "",
   errors: [],
   hintsUsed: [],
@@ -186,15 +194,19 @@ function HomeView({
                 className="primary-button"
                 onClick={() =>
                   onNavigate(
-                    progress.visited.length
+                    progress.completed
+                      ? { name: "trace" }
+                      : progress.visited.length
                       ? { name: "journey" }
                       : { name: "chapter", chapterId: "suites-geometriques" },
                   )
                 }
                 data-testid="hero-pilot-button"
               >
-                <Icon name="play" size={16} />
-                {progress.visited.length && !progress.completed
+                <Icon name={progress.completed ? "book" : "play"} size={16} />
+                {progress.completed
+                  ? "Retrouver ma trace"
+                  : progress.visited.length
                   ? "Reprendre la mission"
                   : "Découvrir le parcours pilote"}
               </button>
@@ -395,7 +407,11 @@ function LevelView({
               index={index}
               progress={progress}
               onOpen={() =>
-                onNavigate({ name: "chapter", chapterId: chapter.id })
+                onNavigate(
+                  chapter.pilot && progress.completed
+                    ? { name: "trace" }
+                    : { name: "chapter", chapterId: chapter.id },
+                )
               }
             />
           ))}
@@ -466,7 +482,11 @@ function ChapterRow({
       >
         {chapter.pilot ? (
           <>
-            {progress.visited.length && !progress.completed ? "Reprendre" : "Commencer"}
+            {progress.completed
+              ? "Voir la trace"
+              : progress.visited.length
+                ? "Reprendre"
+                : "Commencer"}
             <Icon name="arrow" />
           </>
         ) : (
@@ -560,20 +580,39 @@ function ChapterView({
             </span>
           </div>
           <div className="chapter-actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => onStart(false)}
-              data-testid="start-journey-button"
-            >
-              <Icon name="play" size={16} />
-              {progress.visited.length && !progress.completed
-                ? "Reprendre le parcours"
-                : progress.completed
-                  ? "Revoir le parcours"
+            {progress.completed ? (
+              <>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => onNavigate({ name: "trace" })}
+                  data-testid="open-trace-button"
+                >
+                  <Icon name="book" size={16} />
+                  Voir ou télécharger ma trace
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => onStart(true)}
+                >
+                  Refaire le parcours
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => onStart(false)}
+                data-testid="start-journey-button"
+              >
+                <Icon name="play" size={16} />
+                {progress.visited.length
+                  ? "Reprendre le parcours"
                   : "Commencer la mission"}
-            </button>
-            {progress.visited.length > 0 && (
+              </button>
+            )}
+            {progress.visited.length > 0 && !progress.completed && (
               <button
                 type="button"
                 className="text-button"
@@ -717,8 +756,9 @@ function JourneyView({
         currentStepId: "class-handoff",
         visited: Array.from(new Set([...current.visited, step.id])),
         completed: true,
+        completedAt: current.completedAt ?? new Date().toISOString(),
       }));
-      onNavigate({ name: "chapter", chapterId: "suites-geometriques" });
+      onNavigate({ name: "trace" });
       return;
     }
     setProgress((current) => ({
@@ -1139,6 +1179,202 @@ function DiffusionVisual({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function TraceView({
+  progress,
+  onNavigate,
+  onRestart,
+}: {
+  progress: JourneyProgress;
+  onNavigate: (view: View) => void;
+  onRestart: () => void;
+}) {
+  const completionDate = formatCompletionDate(progress.completedAt);
+  const highlights = getPathHighlights(progress.pathTags);
+  const conjecture =
+    progress.conjecture.trim() ||
+    "Une suite semble géométrique lorsque l’on multiplie toujours le terme précédent par le même nombre.";
+
+  function downloadTrace() {
+    const file = new Blob([createStudentTraceText(progress)], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "ma-trace-suites-geometriques.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  return (
+    <main className="trace-page">
+      <div className="trace-toolbar" data-print-hidden="true">
+        <button
+          type="button"
+          className="breadcrumb"
+          onClick={() =>
+            onNavigate({ name: "chapter", chapterId: "suites-geometriques" })
+          }
+        >
+          <Icon name="arrow" /> Retour au chapitre
+        </button>
+        <div className="trace-toolbar-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={downloadTrace}
+            data-testid="download-trace-button"
+          >
+            Télécharger la trace (.txt)
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => window.print()}
+            data-testid="print-trace-button"
+          >
+            <Icon name="book" /> Imprimer ou enregistrer en PDF
+          </button>
+        </div>
+      </div>
+
+      <article className="student-trace" data-testid="student-trace">
+        <header className="student-trace-head">
+          <div className="trace-brand">
+            <span>∑</span>
+            <p>
+              <strong>HORIZON MATHS</strong>
+              <small>Comprendre avant d’apprendre.</small>
+            </p>
+          </div>
+          <div className="trace-title">
+            <span>Terminale · Suites géométriques</span>
+            <h1>Ma trace de découverte</h1>
+            <p>La propagation invisible · {completionDate}</p>
+          </div>
+        </header>
+
+        <div className="trace-identity" aria-label="Informations à compléter">
+          <p>
+            Nom / prénom <span aria-hidden="true" />
+          </p>
+          <p>
+            Classe <span aria-hidden="true" />
+          </p>
+        </div>
+
+        <section className="trace-conjecture">
+          <span className="trace-section-number">01</span>
+          <div>
+            <small>Ma formulation personnelle</small>
+            <h2>Ma conjecture</h2>
+            <blockquote>« {conjecture} »</blockquote>
+          </div>
+        </section>
+
+        <section className="trace-learning-grid">
+          <div className="trace-path">
+            <span className="trace-section-number">02</span>
+            <small>Mon chemin d’apprentissage</small>
+            <h2>Ce qui m’a fait avancer</h2>
+            <ul>
+              {highlights.map((highlight) => (
+                <li key={highlight}>
+                  <span>✓</span>
+                  {highlight}
+                </li>
+              ))}
+            </ul>
+            <p className="trace-hints">
+              {progress.hintsUsed.length
+                ? `${progress.hintsUsed.length} indice${progress.hintsUsed.length > 1 ? "s" : ""} consulté${progress.hintsUsed.length > 1 ? "s" : ""} pour progresser.`
+                : "Parcours réalisé sans demander d’indice."}
+            </p>
+          </div>
+
+          <div className="trace-rule">
+            <span className="trace-section-number">03</span>
+            <small>La règle mathématique</small>
+            <h2>Ce que je retiens</h2>
+            <p>
+              Une suite est <strong>géométrique</strong> lorsque chaque terme
+              s’obtient en multipliant le précédent par un même nombre
+              <strong> q</strong>, appelé <strong>raison</strong>.
+            </p>
+            <div className="trace-formulas">
+              <span>
+                u<sub>n+1</sub> = q × u<sub>n</sub>
+              </span>
+              <span>
+                u<sub>n</sub> = u<sub>0</sub> × q<sup>n</sup>
+              </span>
+            </div>
+            <p className="trace-variation">
+              <strong>q &gt; 1</strong> : la suite augmente
+              <br />
+              <strong>0 &lt; q &lt; 1</strong> : elle diminue
+            </p>
+          </div>
+        </section>
+
+        <section className="trace-examples">
+          <span className="trace-section-number">04</span>
+          <div className="trace-examples-head">
+            <small>Trois contextes, une même structure</small>
+            <h2>Mes exemples de référence</h2>
+          </div>
+          <div className="trace-example-grid">
+            <article>
+              <span>Diffusion</span>
+              <strong>120 × 1,5² = 270</strong>
+              <p>Après deux nouvelles heures.</p>
+            </article>
+            <article>
+              <span>Culture</span>
+              <strong>800 × 1,25⁴ ≈ 1 953</strong>
+              <p>Premier dépassement de 1 800 au cycle 4.</p>
+            </article>
+            <article>
+              <span>Dépréciation</span>
+              <strong>1 000 × 0,8² = 640 €</strong>
+              <p>Après deux années de baisse.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="trace-class-note">
+          <span className="trace-section-number">05</span>
+          <div>
+            <small>Après la mise en commun</small>
+            <h2>La formulation retenue par la classe</h2>
+            <span className="writing-line" />
+            <span className="writing-line" />
+          </div>
+        </section>
+
+        <div className="student-trace-footer">
+          <p>
+            Trace créée sur cet appareil · aucune donnée personnelle transmise
+          </p>
+          <span>horizon maths · voie professionnelle</span>
+        </div>
+      </article>
+
+      <div className="trace-after" data-print-hidden="true">
+        <p>
+          Cette fiche reste disponible sur cet appareil. Télécharge-la pour la
+          conserver même si l’historique du navigateur est effacé.
+        </p>
+        <button type="button" className="text-button" onClick={onRestart}>
+          Refaire le parcours <Icon name="arrow" />
+        </button>
+      </div>
+    </main>
+  );
+}
+
 function TeacherView({
   onNavigate,
   onPreview,
@@ -1362,7 +1598,16 @@ export function MathsApp() {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) setProgress({ ...cloneEmptyProgress(), ...JSON.parse(stored) });
+      if (stored) {
+        const saved = JSON.parse(stored) as Partial<JourneyProgress>;
+        setProgress({
+          ...cloneEmptyProgress(),
+          ...saved,
+          completedAt:
+            saved.completedAt ??
+            (saved.completed ? new Date().toISOString() : null),
+        });
+      }
     } catch {
       // Une progression illisible est simplement ignorée.
     }
@@ -1387,7 +1632,7 @@ export function MathsApp() {
   );
 
   function startJourney(reset = false) {
-    if (reset || progress.completed) {
+    if (reset) {
       setProgress(cloneEmptyProgress());
     }
     setView({ name: "journey" });
@@ -1427,6 +1672,13 @@ export function MathsApp() {
           progress={progress}
           setProgress={setProgress}
           onNavigate={setView}
+        />
+      )}
+      {view.name === "trace" && (
+        <TraceView
+          progress={progress}
+          onNavigate={setView}
+          onRestart={() => startJourney(true)}
         />
       )}
       {view.name === "teacher" && (
