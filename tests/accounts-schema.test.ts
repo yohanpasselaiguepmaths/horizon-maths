@@ -10,6 +10,13 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const studentLevelMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260730100000_student_level_curriculum.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 const cloudClient = readFileSync(
   new URL("../app/data/cloud.ts", import.meta.url),
   "utf8",
@@ -36,6 +43,13 @@ test("les quatre tables exposées activent la sécurité par ligne", () => {
       new RegExp(`alter table public\\.${table} enable row level security;`),
     );
   }
+});
+
+test("la connexion élève transmet le niveau réel de sa classe", () => {
+  assert.match(
+    studentLevelMigration,
+    /'classLevel', classes\.level/,
+  );
 });
 
 test("les secrets élèves restent dans un schéma privé", () => {

@@ -1,3 +1,7 @@
+import type { LevelId } from "../content/curriculum";
+
+export type ClassLevel = LevelId | "mixte";
+
 export type JourneyProgress = {
   currentStepId: string;
   visited: string[];
@@ -19,6 +23,7 @@ export type StudentIdentity = {
   classId: string;
   className: string;
   classCode: string;
+  classLevel: ClassLevel;
 };
 
 export type StudentCloudSnapshot = {
@@ -36,7 +41,7 @@ export type TeacherClass = {
   id: string;
   name: string;
   code: string;
-  level: "seconde" | "premiere" | "terminale" | "mixte";
+  level: ClassLevel;
   createdAt: string;
 };
 

@@ -3,6 +3,8 @@ import test from "node:test";
 import { chapters } from "../app/content/curriculum.ts";
 import {
   getChaptersForClassLevel,
+  getLevelsForClassLevel,
+  isChapterAllowedForClassLevel,
   resolveClassChapterId,
 } from "../app/data/classCurriculum.ts";
 
@@ -31,5 +33,29 @@ test("le parcours sélectionné est conservé lorsqu’il correspond à la class
   assert.equal(
     resolveClassChapterId("seconde", "fonctions-seconde"),
     "fonctions-seconde",
+  );
+});
+
+test("un espace élève ne peut ouvrir que les parcours de sa classe", () => {
+  assert.deepEqual(getLevelsForClassLevel("seconde"), ["seconde"]);
+  assert.deepEqual(getLevelsForClassLevel("premiere"), ["premiere"]);
+  assert.deepEqual(getLevelsForClassLevel("terminale"), ["terminale"]);
+  assert.deepEqual(getLevelsForClassLevel("mixte"), [
+    "seconde",
+    "premiere",
+    "terminale",
+  ]);
+
+  assert.equal(
+    isChapterAllowedForClassLevel("seconde", "fonctions-seconde"),
+    true,
+  );
+  assert.equal(
+    isChapterAllowedForClassLevel("seconde", "suites-geometriques"),
+    false,
+  );
+  assert.equal(
+    isChapterAllowedForClassLevel("mixte", "suites-geometriques"),
+    true,
   );
 });

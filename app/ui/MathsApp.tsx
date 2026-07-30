@@ -36,6 +36,10 @@ import {
   syncStudentProgress,
 } from "../data/cloud";
 import {
+  getLevelsForClassLevel,
+  isChapterAllowedForClassLevel,
+} from "../data/classCurriculum";
+import {
   clearStoredStudentSession,
   PrivacyView,
   readStoredStudentSession,
@@ -147,13 +151,24 @@ function Header({
   const isTeacher = view.name === "teacher";
   const isStudent =
     view.name === "student-access" || view.name === "student-space";
+  const visibleLevels = student
+    ? levels.filter((level) =>
+        getLevelsForClassLevel(student.classLevel).includes(level.id),
+      )
+    : levels;
   return (
     <header className="site-header">
       <button
         type="button"
         className="brand"
-        onClick={() => onNavigate({ name: "home" })}
-        aria-label="Horizon Maths, retour à l’accueil"
+        onClick={() =>
+          onNavigate({ name: student ? "student-space" : "home" })
+        }
+        aria-label={
+          student
+            ? "Horizon Maths, retour à mon espace"
+            : "Horizon Maths, retour à l’accueil"
+        }
       >
         <span className="brand-mark">∑</span>
         <span>
@@ -162,7 +177,7 @@ function Header({
         </span>
       </button>
       <nav aria-label="Navigation principale" className="desktop-nav">
-        {levels.map((level) => (
+        {visibleLevels.map((level) => (
           <button
             type="button"
             key={level.id}
@@ -1768,6 +1783,11 @@ export function MathsApp() {
       );
       window.localStorage.setItem(STUDENT_OWNER_KEY, snapshot.identity.id);
       setSyncStatus("synced");
+      setView((current) =>
+        current.name === "home" || current.name === "student-access"
+          ? { name: "student-space" }
+          : current,
+      );
     });
     return () => {
       cancelled = true;
@@ -1809,6 +1829,41 @@ export function MathsApp() {
         : getChapterProgress(progressStore, activeChapterId)
       : undefined;
 
+  function navigate(target: View) {
+    if (!studentIdentity) {
+      setView(target);
+      return;
+    }
+
+    if (target.name === "home" || target.name === "student-access") {
+      setView({ name: "student-space" });
+      return;
+    }
+
+    if (
+      target.name === "level" &&
+      !getLevelsForClassLevel(studentIdentity.classLevel).includes(target.level)
+    ) {
+      setView({ name: "student-space" });
+      return;
+    }
+
+    if (
+      (target.name === "chapter" ||
+        target.name === "journey" ||
+        target.name === "trace") &&
+      !isChapterAllowedForClassLevel(
+        studentIdentity.classLevel,
+        target.chapterId,
+      )
+    ) {
+      setView({ name: "student-space" });
+      return;
+    }
+
+    setView(target);
+  }
+
   function setChapterProgress(
     chapterId: string,
     action: React.SetStateAction<JourneyProgress>,
@@ -1827,6 +1882,13 @@ export function MathsApp() {
   }
 
   function startJourney(chapterId: string, reset = false) {
+    if (
+      studentIdentity &&
+      !isChapterAllowedForClassLevel(studentIdentity.classLevel, chapterId)
+    ) {
+      setView({ name: "student-space" });
+      return;
+    }
     const journey = journeyRegistry[chapterId];
     if (!journey) return;
     if (reset) {
@@ -1893,7 +1955,7 @@ export function MathsApp() {
         <Header
           view={view}
           student={studentIdentity}
-          onNavigate={setView}
+          onNavigate={navigate}
         />
       )}
       {view.name === "home" && (
@@ -1902,14 +1964,14 @@ export function MathsApp() {
             progressStore,
             "suites-geometriques",
           )}
-          onNavigate={setView}
+          onNavigate={navigate}
         />
       )}
       {view.name === "level" && (
         <LevelView
           levelId={view.level}
           progressStore={progressStore}
-          onNavigate={setView}
+          onNavigate={navigate}
         />
       )}
       {view.name === "chapter" && selectedChapter && selectedProgress && (
@@ -1917,7 +1979,7 @@ export function MathsApp() {
           chapter={selectedChapter}
           journey={selectedJourney}
           progress={selectedProgress}
-          onNavigate={setView}
+          onNavigate={navigate}
           onStart={(reset) => startJourney(selectedChapter.id, reset)}
         />
       )}
@@ -1941,7 +2003,7 @@ export function MathsApp() {
             view.preview &&
             (target.name === "chapter" || target.name === "trace")
               ? setView({ name: "teacher" })
-              : setView(target)
+              : navigate(target)
           }
         />
       )}
@@ -1953,7 +2015,7 @@ export function MathsApp() {
           chapter={selectedChapter}
           journey={selectedJourney}
           progress={selectedProgress}
-          onNavigate={setView}
+          onNavigate={navigate}
           onRestart={() => startJourney(selectedChapter.id, true)}
         />
       )}
@@ -1974,12 +2036,12 @@ export function MathsApp() {
             progressStore={progressStore}
             syncStatus={syncStatus}
             onOpenChapter={(chapterId) =>
-              setView({ name: "chapter", chapterId })
+              navigate({ name: "chapter", chapterId })
             }
             onOpenTrace={(chapterId) =>
-              setView({ name: "trace", chapterId })
+              navigate({ name: "trace", chapterId })
             }
-            onBrowseLevel={(level) => setView({ name: "level", level })}
+            onBrowseLevel={(level) => navigate({ name: "level", level })}
             onLogout={disconnectStudent}
             onDeleted={deleteCurrentStudent}
             onPrivacy={() => setView({ name: "privacy" })}

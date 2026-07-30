@@ -229,7 +229,16 @@ export function StudentSpaceView({
   onPrivacy: () => void;
 }) {
   const [actionError, setActionError] = useState("");
-  const startedChapters = chapters.filter(
+  const availableChapters = getChaptersForClassLevel(identity.classLevel);
+  const studentLevels =
+    identity.classLevel === "mixte"
+      ? levels
+      : levels.filter((level) => level.id === identity.classLevel);
+  const classLevelLabel =
+    identity.classLevel === "mixte"
+      ? "Groupe mixte"
+      : levels.find((level) => level.id === identity.classLevel)?.shortLabel;
+  const startedChapters = availableChapters.filter(
     (chapter) => (progressStore[chapter.id]?.visited.length ?? 0) > 0,
   );
   const completedChapters = startedChapters.filter(
@@ -284,7 +293,8 @@ export function StudentSpaceView({
           <h1>Bonjour, {identity.displayName}.</h1>
           <p>
             Classe <strong>{identity.className}</strong> · code{" "}
-            <strong>{identity.classCode}</strong>
+            <strong>{identity.classCode}</strong> · niveau{" "}
+            <strong>{classLevelLabel}</strong>
           </p>
         </div>
         <span className={`sync-badge sync-${syncStatus}`}>
@@ -303,7 +313,7 @@ export function StudentSpaceView({
           <span>traces terminées</span>
         </article>
         <article>
-          <strong>{chapters.length - completedChapters.length}</strong>
+          <strong>{availableChapters.length - completedChapters.length}</strong>
           <span>parcours à découvrir</span>
         </article>
       </section>
@@ -330,16 +340,16 @@ export function StudentSpaceView({
             <>
               <h2>Choisir un premier parcours</h2>
               <p>
-                Sélectionne ton niveau puis le chapitre travaillé en classe.
+                Retrouve uniquement les parcours prévus pour ta classe.
               </p>
               <div className="level-shortcuts">
-                {levels.map((level) => (
+                {studentLevels.map((level) => (
                   <button
                     type="button"
                     key={level.id}
                     onClick={() => onBrowseLevel(level.id)}
                   >
-                    {level.shortLabel} →
+                    Parcours de {level.shortLabel} →
                   </button>
                 ))}
               </div>
